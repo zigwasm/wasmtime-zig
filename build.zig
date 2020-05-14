@@ -23,7 +23,12 @@ pub fn build(b: *Builder) void {
     simple_exe.addIncludeDir("lib");
     simple_exe.addLibPath("lib");
     simple_exe.linkSystemLibraryName("wasmtime");
+
+    const path_to_wasm = b.option([]const u8, "path-to-wasm", "Path to Wasm module");
     const run_simple_cmd = simple_exe.run();
+    if (path_to_wasm) |p| {
+        run_simple_cmd.addArg(p);
+    }
     const run_simple_step = b.step("example-simple", "Run the simple example app");
     run_simple_step.dependOn(&run_simple_cmd.step);
 }
