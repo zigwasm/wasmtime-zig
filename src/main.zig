@@ -49,6 +49,7 @@ pub const Module = struct {
     pub fn init(store: *Store, wasm: []const u8) !Self {
         var wasm_bytes: c.wasm_byte_vec_t = undefined;
         c.wasm_byte_vec_new_uninitialized(&wasm_bytes, wasm.len);
+        defer c.wasm_byte_vec_delete(&wasm_bytes);
 
         var i: usize = 0;
         var ptr = wasm_bytes.data;
@@ -57,14 +58,29 @@ pub const Module = struct {
             ptr += 1;
         }
 
-        const instance = c.wasm_module_new(store.instance, &wasm_bytes) orelse {
-            c.wasm_byte_vec_delete(&wasm_bytes);
-            return Error.ModuleInit;
+        var instance: ?*c.wasm_module_t = null;
+        const err = c.wasmtime_module_new(store.instance, &wasm_bytes, &instance);
+        defer if (err) |e| {
+            c.wasmtime_error_delete(e);
         };
 
-        return Self{
-            .instance = instance,
-        };
+        if (err) |e| {
+            var msg: c.wasm_byte_vec_t = undefined;
+            c.wasmtime_error_message(e, &msg);
+            defer c.wasm_byte_vec_delete(&msg);
+
+            // TODO print error message
+            std.debug.warn("unexpected error occurred", .{});
+            return Error.ModuleInit;
+        }
+
+        if (instance) |inst| {
+            return Self{
+                .instance = inst,
+            };
+        } else {
+            return Error.ModuleInit;
+        }
     }
 
     pub fn deinit(md: Self) void {
