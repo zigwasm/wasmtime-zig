@@ -8,41 +8,41 @@ const c = @cImport({
 pub const Error = error{ EngineInit, StoreInit, ModuleInit };
 
 pub const Engine = struct {
-    instance: *c.wasm_engine_t,
+    c_ptr: *c.wasm_engine_t,
 
     const Self = @This();
 
     pub fn init() !Self {
-        const instance = c.wasm_engine_new() orelse return Error.EngineInit;
+        const engine = c.wasm_engine_new() orelse return Error.EngineInit;
         return Self{
-            .instance = instance,
+            .c_ptr = engine,
         };
     }
 
-    pub fn deinit(en: Self) void {
-        c.wasm_engine_delete(en.instance);
+    pub fn deinit(self: Self) void {
+        c.wasm_engine_delete(self.c_ptr);
     }
 };
 
 pub const Store = struct {
-    instance: *c.wasm_store_t,
+    c_ptr: *c.wasm_store_t,
 
     const Self = @This();
 
     pub fn init(engine: *Engine) !Self {
-        const instance = c.wasm_store_new(engine.instance) orelse return Error.StoreInit;
+        const store = c.wasm_store_new(engine.c_ptr) orelse return Error.StoreInit;
         return Self{
-            .instance = instance,
+            .c_ptr = store,
         };
     }
 
-    pub fn deinit(st: Self) void {
-        c.wasm_store_delete(st.instance);
+    pub fn deinit(self: Self) void {
+        c.wasm_store_delete(self.c_ptr);
     }
 };
 
 pub const Module = struct {
-    instance: *c.wasm_module_t,
+    c_ptr: *c.wasm_module_t,
 
     const Self = @This();
 
@@ -58,8 +58,8 @@ pub const Module = struct {
             ptr += 1;
         }
 
-        var instance: ?*c.wasm_module_t = null;
-        const err = c.wasmtime_module_new(store.instance, &wasm_bytes, &instance);
+        var maybe_c_ptr: ?*c.wasm_module_t = null;
+        const err = c.wasmtime_module_new(store.c_ptr, &wasm_bytes, &maybe_c_ptr);
         defer if (err) |e| {
             c.wasmtime_error_delete(e);
         };
@@ -74,17 +74,17 @@ pub const Module = struct {
             return Error.ModuleInit;
         }
 
-        if (instance) |inst| {
+        if (maybe_c_ptr) |c_ptr| {
             return Self{
-                .instance = inst,
+                .c_ptr = c_ptr,
             };
         } else {
             return Error.ModuleInit;
         }
     }
 
-    pub fn deinit(md: Self) void {
-        c.wasm_module_delete(module);
+    pub fn deinit(self: Self) void {
+        c.wasm_module_delete(self.c_ptr);
     }
 };
 

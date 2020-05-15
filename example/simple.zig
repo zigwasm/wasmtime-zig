@@ -18,14 +18,14 @@ pub fn main() !void {
     const nread = try wasm_file.readAll(wasm[0..]);
 
     var engine = try wasmtime.Engine.init();
-    errdefer engine.deinit();
+    defer engine.deinit();
     std.debug.warn("Engine initialized...\n", .{});
 
     var store = try wasmtime.Store.init(&engine);
-    errdefer store.deinit();
+    defer store.deinit();
     std.debug.warn("Store initialized...\n", .{});
 
     var module = try wasmtime.Module.init(&store, wasm[0..nread]);
-    errdefer module.deinit();
+    defer module.deinit();
     std.debug.warn("Wasm module compiled...\n", .{});
 }
