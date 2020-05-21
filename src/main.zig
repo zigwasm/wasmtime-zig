@@ -126,6 +126,7 @@ pub const Func = struct {
         // lists
         var c_functype: *c.wasm_functype_t = undefined;
         c_functype = c.wasm_functype_new_0_0() orelse return Error.FuncInit;
+        defer c.wasm_functype_delete(c_functype);
 
         var func: *c.wasm_func_t = undefined;
         func = c.wasm_func_new(store.store, c_functype, callback) orelse return Error.FuncInit;

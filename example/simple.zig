@@ -1,7 +1,9 @@
 const std = @import("std");
 const wasmtime = @import("wasmtime");
-const process = std.process;
 const fs = std.fs;
+const process = std.process;
+const ga = std.heap.c_allocator;
+const Allocator = std.mem.Allocator;
 
 fn hello(params: ?*const wasmtime.c.wasm_val_t, results: ?*wasmtime.c.wasm_val_t) callconv(.C) ?*wasmtime.c.wasm_trap_t {
     std.debug.warn("Calling back...\n", .{});
@@ -9,19 +11,40 @@ fn hello(params: ?*const wasmtime.c.wasm_val_t, results: ?*wasmtime.c.wasm_val_t
     return null;
 }
 
+fn readToEnd(file: fs.File, alloc: *Allocator) ![]u8 {
+    const ALLOC_SIZE: comptime usize = 1000;
+
+    var buffer = try alloc.alloc(u8, ALLOC_SIZE);
+    defer alloc.free(buffer);
+
+    var total_read: usize = 0;
+    while (true) {
+        const nread = try file.readAll(buffer[total_read..]);
+        total_read += nread;
+
+        if (total_read < buffer.len) break;
+
+        buffer = try alloc.realloc(buffer, buffer.len + ALLOC_SIZE);
+    }
+
+    var contents = try alloc.alloc(u8, total_read);
+    std.mem.copy(u8, contents, buffer[0..total_read]);
+
+    return contents;
+}
+
 pub fn main() !void {
     var args: process.ArgIterator = process.args();
-    var buffer: [1000]u8 = undefined;
-    var allocator = &std.heap.FixedBufferAllocator.init(&buffer).allocator;
     _ = args.skip();
-    const wasm_fn = args.next(allocator) orelse {
+    const wasm_fn = try args.next(ga) orelse {
         std.debug.warn("You need to pass the path to your Wasm module\n", .{});
         return;
     };
+    defer ga.free(wasm_fn);
 
-    const wasm_file = try fs.openFileAbsolute(try wasm_fn, .{});
-    var wasm: [1000000]u8 = undefined;
-    const nread = try wasm_file.readAll(wasm[0..]);
+    const wasm_file = try fs.openFileAbsolute(wasm_fn, .{});
+    const wasm = try readToEnd(wasm_file, ga);
+    defer ga.free(wasm);
 
     var engine = try wasmtime.Engine.init();
     defer engine.deinit();
@@ -31,7 +54,7 @@ pub fn main() !void {
     defer store.deinit();
     std.debug.warn("Store initialized...\n", .{});
 
-    var module = try wasmtime.Module.initFromWat(store, wasm[0..nread]);
+    var module = try wasmtime.Module.initFromWat(store, wasm);
     defer module.deinit();
     std.debug.warn("Wasm module compiled...\n", .{});
 
