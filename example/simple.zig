@@ -1,7 +1,6 @@
 const std = @import("std");
 const wasmtime = @import("wasmtime");
 const fs = std.fs;
-const process = std.process;
 const ga = std.heap.c_allocator;
 const Allocator = std.mem.Allocator;
 
@@ -34,15 +33,7 @@ fn readToEnd(file: fs.File, alloc: *Allocator) ![]u8 {
 }
 
 pub fn main() !void {
-    var args: process.ArgIterator = process.args();
-    _ = args.skip();
-    const wasm_fn = try args.next(ga) orelse {
-        std.debug.warn("You need to pass the path to your Wasm module\n", .{});
-        return;
-    };
-    defer ga.free(wasm_fn);
-
-    const wasm_file = try fs.openFileAbsolute(wasm_fn, .{});
+    const wasm_file = try fs.cwd().openFile("example/simple.wat", .{});
     const wasm = try readToEnd(wasm_file, ga);
     defer ga.free(wasm);
 
