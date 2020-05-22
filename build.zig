@@ -53,12 +53,10 @@ pub fn build(b: *Builder) !void {
     const lib = b.addStaticLibrary("wasmtime-zig", "src/main.zig");
     try installDependency(b, lib, LIBWASMTIME_URL, "*/lib/libwasmtime.a");
     lib.setBuildMode(mode);
-    lib.addIncludeDir("include");
     lib.install();
 
     var main_tests = b.addTest("src/main.zig");
     main_tests.setBuildMode(mode);
-    main_tests.addIncludeDir("include");
     main_tests.step.dependOn(b.getInstallStep());
 
     const test_step = b.step("test", "Run library tests");
@@ -67,8 +65,7 @@ pub fn build(b: *Builder) !void {
     const simple_exe = b.addExecutable("simple", "example/simple.zig");
     simple_exe.setBuildMode(mode);
     simple_exe.addPackagePath("wasmtime", "src/main.zig");
-    simple_exe.addIncludeDir("include");
-    simple_exe.linkLibrary(lib);
+    simple_exe.addObjectFile("zig-cache/lib/libwasmtime.a");
 
     simple_exe.step.dependOn(b.getInstallStep());
 

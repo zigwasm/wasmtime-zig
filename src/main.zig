@@ -1,14 +1,12 @@
 const std = @import("std");
 const testing = std.testing;
-pub const c = @cImport({
-    @cInclude("wasm.h");
-    @cInclude("wasmtime.h");
-});
+
+pub const c = @import("c.zig");
 
 pub const Error = error{ EngineInit, StoreInit, ModuleInit, FuncInit, InstanceInit };
 
 pub const Engine = struct {
-    engine: *c.wasm_engine_t,
+    engine: *c_void,
 
     const Self = @This();
 
@@ -25,7 +23,7 @@ pub const Engine = struct {
 };
 
 pub const Store = struct {
-    store: *c.wasm_store_t,
+    store: *c_void,
 
     const Self = @This();
 
@@ -42,7 +40,7 @@ pub const Store = struct {
 };
 
 pub const Module = struct {
-    module: *c.wasm_module_t,
+    module: *c_void,
 
     const Self = @This();
 
@@ -92,7 +90,7 @@ pub const Module = struct {
     }
 
     fn init(store: Store, wasm_bytes: *c.wasm_byte_vec_t) !Self {
-        var module: ?*c.wasm_module_t = null;
+        var module: ?*c_void = null;
         const err = c.wasmtime_module_new(store.store, wasm_bytes, &module);
         errdefer c.wasmtime_error_delete(err.?);
 
@@ -117,20 +115,21 @@ pub const Module = struct {
 };
 
 pub const Func = struct {
-    func: *c.wasm_func_t,
+    func: *c_void,
 
     const Self = @This();
 
-    pub fn init(store: Store, callback: fn (?*const c.wasm_val_t, ?*c.wasm_val_t) callconv(.C) ?*c.wasm_trap_t) !Self {
+    pub fn init(store: Store, callback: c.Callback) !Self {
         // TODO implement creating arbitrary Wasm callbacks from parameter and result
         // lists
-        var c_functype: *c.wasm_functype_t = undefined;
-        c_functype = c.wasm_functype_new_0_0() orelse return Error.FuncInit;
-        defer c.wasm_functype_delete(c_functype);
+        var args: c.wasm_valtype_vec_t = undefined;
+        var results: c.wasm_valtype_vec_t = undefined;
+        c.wasm_valtype_vec_new_empty(&args);
+        c.wasm_valtype_vec_new_empty(&results);
+        const functype = c.wasm_functype_new(&args, &results) orelse return Error.FuncInit;
+        defer c.wasm_functype_delete(functype);
 
-        var func: *c.wasm_func_t = undefined;
-        func = c.wasm_func_new(store.store, c_functype, callback) orelse return Error.FuncInit;
-
+        const func = c.wasm_func_new(store.store, functype, callback) orelse return Error.FuncInit;
         return Self{
             .func = func,
         };
@@ -138,15 +137,15 @@ pub const Func = struct {
 };
 
 pub const Instance = struct {
-    instance: *c.wasm_instance_t,
+    instance: *c_void,
 
     const Self = @This();
 
     // TODO accepts a list of imports
     pub fn init(module: Module, import: Func) !Self {
-        var trap: ?*c.wasm_trap_t = null;
-        var instance: ?*c.wasm_instance_t = null;
-        const imports = [_]?*c.wasm_extern_t{c.wasm_func_as_extern(import.func)};
+        var trap: ?*c_void = null;
+        var instance: ?*c_void = null;
+        const imports = [_]?*c_void{c.wasm_func_as_extern(import.func)};
         const err = c.wasmtime_instance_new(module.module, &imports, 1, &instance, &trap);
         errdefer {
             if (err) |e| {
@@ -196,10 +195,10 @@ pub const Instance = struct {
 };
 
 pub const Callable = struct {
-    func: *c.wasm_func_t,
+    func: *c_void,
 
     pub fn call(self: Callable) !void {
-        var trap: ?*c.wasm_trap_t = null;
+        var trap: ?*c_void = null;
         const err = c.wasmtime_func_call(self.func, null, 0, null, 0, &trap);
         errdefer {
             if (err) |e| {
