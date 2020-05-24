@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: macOS-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+    - name: Install zig
+      run: |
+        brew install zig
+    - name: Install libwasmtime
+      run: |
+        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-macos-c-api.tar.xz -o wasmtime.tar.xz
+        tar -C . --strip-components 2 -xvf wasmtime.tar.xz */lib/libwasmtime.a
+    - name: zig build
+      run: |
+        zig build
+    - name: zig build test
+      run: |
+        zig build test -Dlibrary-search-path=.
+    - name: zig build example-simple
+      run: |
+        zig build example-simple -Dlibrary-search-path=.
