@@ -119,13 +119,26 @@ pub const Func = struct {
 
     const Self = @This();
 
-    pub fn init(store: Store, callback: c.Callback) !Self {
-        // TODO implement creating arbitrary Wasm callbacks from parameter and result
-        // lists
+    pub fn init(store: Store, callback: var) !Self {
+        const cb_meta = @typeInfo(@TypeOf(callback));
+        switch (cb_meta) {
+            .Fn => {
+                if (cb_meta.Fn.args.len > 0 or cb_meta.Fn.return_type.? != void) {
+                    @compileError("only callbacks with no input args and no results are currently supported");
+                }
+
+                const hmm = fn cb(params: ?*const wasmtime.c.wasm_val_t, results: ?*wasmtime.c.wasm_val_t) callconv(.C) ?*c_void {
+                    callback();
+                    return null;
+                };
+            },
+            else => @compileError("only functions can be used as callbacks into Wasm"),
+        }
         var args: c.wasm_valtype_vec_t = undefined;
         var results: c.wasm_valtype_vec_t = undefined;
         c.wasm_valtype_vec_new_empty(&args);
         c.wasm_valtype_vec_new_empty(&results);
+
         const functype = c.wasm_functype_new(&args, &results) orelse return Error.FuncInit;
         defer c.wasm_functype_delete(functype);
 

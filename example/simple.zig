@@ -5,11 +5,15 @@ const fs = std.fs;
 const ga = std.heap.c_allocator;
 const Allocator = std.mem.Allocator;
 
-fn hello(params: ?*const wasmtime.c.wasm_val_t, results: ?*wasmtime.c.wasm_val_t) callconv(.C) ?*c_void {
+fn hello() void {
     std.debug.warn("Calling back...\n", .{});
     std.debug.warn("> Hello World!\n", .{});
-    return null;
 }
+// fn hello(params: ?*const wasmtime.c.wasm_val_t, results: ?*wasmtime.c.wasm_val_t) callconv(.C) ?*c_void {
+//     std.debug.warn("Calling back...\n", .{});
+//     std.debug.warn("> Hello World!\n", .{});
+//     return null;
+// }
 
 fn readToEnd(file: fs.File, alloc: *Allocator) ![]u8 {
     const ALLOC_SIZE: comptime usize = 1000;
