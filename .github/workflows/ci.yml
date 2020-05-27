@@ -9,35 +9,35 @@ on:
       - master
 
 jobs:
-  build:
+  build_nix:
     name: Build and test
     runs-on: ${{ matrix.os }}-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu, macOS, windows]
+        os: [macos, ubuntu]
 
     steps:
     - name: Checkout
       uses: actions/checkout@v1
-    - name: Install zig
+    - name: Install zig (ubuntu)
+      if: matrix.os == 'ubuntu'
+      run: |
+        sudo snap install zig --classic --beta
+    - name: Install zig (macOS)
+      if: matrix.os == 'macos'
       run: |
         brew install zig
     - name: Install libwasmtime (ubuntu)
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu'
       run: |
         curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-linux-c-api.tar.xz -o wasmtime.tar.xz
-        tar -C . --strip-components 2 -xvf wasmtime.tar.xz */lib/libwasmtime.a
+        tar -C . --strip-components 2 --wildcards -xvf wasmtime.tar.xz */lib/libwasmtime.a
     - name: Install libwasmtime (macOS)
-      if: matrix.os == 'macOS-latest'
+      if: matrix.os == 'macos'
       run: |
         curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-macos-c-api.tar.xz -o wasmtime.tar.xz
         tar -C . --strip-components 2 -xvf wasmtime.tar.xz */lib/libwasmtime.a
-    - name: Install libwasmtime (windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-windows-c-api.zip -o wasmtime.zip
-        7z e -i!*/lib/wasmtime.lib wasmtime.zip
     - name: zig build
       run: |
         zig build
@@ -47,3 +47,30 @@ jobs:
     - name: zig build example-simple
       run: |
         zig build example-simple -Dlibrary-search-path=.
+
+  build_win:
+    name: Build and test (windows)
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+    - name: Install zig (windows)
+      run: |
+        choco install zig
+    - name: Install libwasmtime (windows)
+      run: |
+        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-windows-c-api.zip -o wasmtime.zip
+        7z e -i!"*/lib/wasmtime.lib" wasmtime.zip
+    - name: zig build
+      shell: cmd
+      run: |
+        zig.exe build
+    - name: zig build test
+      shell: cmd
+      run: |
+        zig.exe build test -Dlibrary-search-path=.
+    - name: zig build example-simple
+      shell: cmd
+      run: |
+        zig.exe build example-simple -Dlibrary-search-path=.
