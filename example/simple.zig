@@ -1,7 +1,7 @@
 const std = @import("std");
 const wasmtime = @import("wasmtime");
 const fs = std.fs;
-const ga = std.heap.c_allocator;
+const ga = std.heap.page_allocator;
 const Allocator = std.mem.Allocator;
 
 fn hello(params: ?*const wasmtime.c.wasm_val_t, results: ?*wasmtime.c.wasm_val_t) callconv(.C) ?*c_void {
