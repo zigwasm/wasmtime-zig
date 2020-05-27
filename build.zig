@@ -25,13 +25,14 @@ pub fn build(b: *Builder) !void {
     simple_exe.setBuildMode(mode);
     simple_exe.addPackagePath("wasmtime", "src/main.zig");
     simple_exe.linkSystemLibrary("wasmtime");
-    if (builtin.os.tag == .windows) {
-        simple_exe.linkSystemLibrary("advapi32");
-        simple_exe.linkSystemLibrary("Ws2_32");
-        simple_exe.linkSystemLibrary("userenv");
-    } else {
-        simple_exe.linkSystemLibrary("pthread");
-    }
+    simple_exe.linkLibC();
+    // if (builtin.os.tag == .windows) {
+    //     simple_exe.linkSystemLibrary("advapi32");
+    //     simple_exe.linkSystemLibrary("Ws2_32");
+    //     simple_exe.linkSystemLibrary("userenv");
+    // } else {
+    //     simple_exe.linkSystemLibrary("pthread");
+    // }
     if (lib_path) |path| {
         simple_exe.addLibPath(path);
     }
