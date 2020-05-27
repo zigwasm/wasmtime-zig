@@ -11,7 +11,11 @@ on:
 jobs:
   build:
     name: Build and test
-    runs-on: macOS-latest
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu, macOS, windows]
 
     steps:
     - name: Checkout
@@ -19,10 +23,21 @@ jobs:
     - name: Install zig
       run: |
         brew install zig
-    - name: Install libwasmtime
+    - name: Install libwasmtime (ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-linux-c-api.tar.xz -o wasmtime.tar.xz
+        tar -C . --strip-components 2 -xvf wasmtime.tar.xz */lib/libwasmtime.a
+    - name: Install libwasmtime (macOS)
+      if: matrix.os == 'macOS-latest'
       run: |
         curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-macos-c-api.tar.xz -o wasmtime.tar.xz
         tar -C . --strip-components 2 -xvf wasmtime.tar.xz */lib/libwasmtime.a
+    - name: Install libwasmtime (windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-windows-c-api.zip -o wasmtime.zip
+        7z e -i!*/lib/wasmtime.lib wasmtime.zip
     - name: zig build
       run: |
         zig build
