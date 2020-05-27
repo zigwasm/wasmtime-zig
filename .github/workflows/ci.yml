@@ -15,9 +15,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos, ubuntu]
+        os: [macos, ubuntu, windows]
 
     steps:
+    - name: Configure git
+      if: matrix.os == 'windows'
+      run: |
+        git config --global core.autocrlf false
     - name: Checkout
       uses: actions/checkout@v1
     - name: Install zig (ubuntu)
@@ -28,6 +32,10 @@ jobs:
       if: matrix.os == 'macos'
       run: |
         brew install zig
+    - name: Install zig (windows)
+      if: matrix.os == 'windows'
+      run: |
+        choco install zig
     - name: Install libwasmtime (ubuntu)
       if: matrix.os == 'ubuntu'
       run: |
@@ -38,6 +46,11 @@ jobs:
       run: |
         curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-macos-c-api.tar.xz -o wasmtime.tar.xz
         tar -C . --strip-components 2 -xvf wasmtime.tar.xz */lib/libwasmtime.a
+    - name: Install libwasmtime (windows)
+      if: matrix.os == 'windows'
+      run: |
+        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-windows-c-api.zip -o wasmtime.zip
+        7z e -i!"*/lib/wasmtime.lib" wasmtime.zip
     - name: zig build
       run: |
         zig build
@@ -48,32 +61,3 @@ jobs:
       run: |
         zig build example-simple -Dlibrary-search-path=.
 
-  build_win:
-    name: Build and test (windows)
-    runs-on: windows-latest
-
-    steps:
-    - name: Configure git
-      run: |
-        git config --global core.autocrlf false
-    - name: Checkout
-      uses: actions/checkout@v1
-    - name: Install zig (windows)
-      run: |
-        choco install zig
-    - name: Install libwasmtime (windows)
-      run: |
-        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-windows-c-api.zip -o wasmtime.zip
-        7z e -i!"*/lib/wasmtime.lib" wasmtime.zip
-    - name: zig build
-      shell: cmd
-      run: |
-        zig.exe build
-    - name: zig build test
-      shell: cmd
-      run: |
-        zig.exe build test -Dlibrary-search-path=.
-    - name: zig build example-simple
-      shell: cmd
-      run: |
-        zig.exe build example-simple -Dlibrary-search-path=.
