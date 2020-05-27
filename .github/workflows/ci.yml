@@ -56,8 +56,8 @@ jobs:
         zig build
     - name: zig build test
       run: |
-        zig build test -Dlibrary-search-path=.
+        zig build test -Dlibrary-search-path="."
     - name: zig build example-simple
       run: |
-        zig build example-simple -Dlibrary-search-path=.
+        zig build example-simple -Dlibrary-search-path="."
 

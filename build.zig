@@ -1,3 +1,4 @@
+const builtin = @import("builtin");
 const Builder = @import("std").build.Builder;
 
 pub fn build(b: *Builder) !void {
@@ -24,7 +25,9 @@ pub fn build(b: *Builder) !void {
     simple_exe.setBuildMode(mode);
     simple_exe.addPackagePath("wasmtime", "src/main.zig");
     simple_exe.linkSystemLibrary("wasmtime");
-    simple_exe.linkSystemLibrary("pthread");
+    if (builtin.os.tag != .windows) {
+        simple_exe.linkSystemLibrary("pthread");
+    }
     if (lib_path) |path| {
         simple_exe.addLibPath(path);
     }
