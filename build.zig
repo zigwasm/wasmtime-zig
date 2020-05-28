@@ -1,5 +1,20 @@
 const builtin = @import("builtin");
-const Builder = @import("std").build.Builder;
+const std = @import("std");
+const Builder = std.build.Builder;
+const LibExeObjStep = std.build.LibExeObjStep;
+
+fn linkWasmtime(step: *LibExeObjStep, search_path: ?[]const u8) void {
+    if (builtin.os.tag == .windows) {
+        // On Windows, link dynamic library as otherwise lld will have a
+        // hard time satisfying `libwasmtime` deps
+        step.linkSystemLibrary("wasmtime.dll");
+    } else {
+        step.linkSystemLibrary("wasmtime");
+    }
+    if (search_path) |path| {
+        step.addLibPath(path);
+    }
+}
 
 pub fn build(b: *Builder) !void {
     const mode = b.standardReleaseOptions();
@@ -12,10 +27,7 @@ pub fn build(b: *Builder) !void {
 
     var main_tests = b.addTest("src/main.zig");
     main_tests.setBuildMode(mode);
-    main_tests.linkSystemLibrary("wasmtime");
-    if (lib_path) |path| {
-        main_tests.addLibPath(path);
-    }
+    linkWasmtime(main_tests, lib_path);
     main_tests.step.dependOn(b.getInstallStep());
 
     const test_step = b.step("test", "Run library tests");
@@ -24,16 +36,8 @@ pub fn build(b: *Builder) !void {
     const simple_exe = b.addExecutable("simple", "example/simple.zig");
     simple_exe.setBuildMode(mode);
     simple_exe.addPackagePath("wasmtime", "src/main.zig");
-    simple_exe.linkSystemLibrary("wasmtime");
     simple_exe.linkLibC();
-    // if (builtin.os.tag == .windows) {
-    //     simple_exe.linkSystemLibrary("advapi32");
-    //     simple_exe.linkSystemLibrary("Ws2_32");
-    //     simple_exe.linkSystemLibrary("userenv");
-    // }
-    if (lib_path) |path| {
-        simple_exe.addLibPath(path);
-    }
+    linkWasmtime(simple_exe, lib_path);
     simple_exe.step.dependOn(b.getInstallStep());
 
     const run_simple_cmd = simple_exe.run();

@@ -44,3 +44,7 @@ zig build example-simple -Dlibrary-search-path=<path-to-libwasmtime>
 ```
 
 [`hello.c`]: https://github.com/bytecodealliance/wasmtime/blob/master/examples/hello.c
+
+**NOTE:** while on Linux and macOS, it is fine to link with `libwasmtime` statically, I've found that
+on Windows it is generally safer to use a dynamic library. Therefore, when installing `libwasmtime` make
+sure you point to the path where `wasmtime.dll.lib` is located.

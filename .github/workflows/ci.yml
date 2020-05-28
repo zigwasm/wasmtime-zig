@@ -50,7 +50,8 @@ jobs:
       if: matrix.os == 'windows'
       run: |
         curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-windows-c-api.zip -o wasmtime.zip
-        7z e -i!"*/lib/wasmtime.lib" wasmtime.zip
+        7z e -i!"*/lib/wasmtime.dll.lib" wasmtime.zip
+        7z e -i!"*/lib/wasmtime.dll" wasmtime.zip
     - name: zig build
       run: |
         zig build
