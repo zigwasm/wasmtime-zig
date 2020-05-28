@@ -1,3 +1,4 @@
+const builtin = @import("builtin");
 const std = @import("std");
 const wasmtime = @import("wasmtime");
 const fs = std.fs;
@@ -33,7 +34,8 @@ fn readToEnd(file: fs.File, alloc: *Allocator) ![]u8 {
 }
 
 pub fn main() !void {
-    const wasm_file = try fs.cwd().openFile("example/simple.wat", .{});
+    const wasm_path = if (builtin.os.tag == .windows) "example\\simple.wat" else "example/simple.wat";
+    const wasm_file = try fs.cwd().openFile(wasm_path, .{});
     const wasm = try readToEnd(wasm_file, ga);
     defer ga.free(wasm);
 
