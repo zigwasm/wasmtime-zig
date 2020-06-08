@@ -9,11 +9,6 @@ fn hello() void {
     std.debug.warn("Calling back...\n", .{});
     std.debug.warn("> Hello World!\n", .{});
 }
-// fn hello(params: ?*const wasmtime.c.wasm_val_t, results: ?*wasmtime.c.wasm_val_t) callconv(.C) ?*c_void {
-//     std.debug.warn("Calling back...\n", .{});
-//     std.debug.warn("> Hello World!\n", .{});
-//     return null;
-// }
 
 fn readToEnd(file: fs.File, alloc: *Allocator) ![]u8 {
     const ALLOC_SIZE: comptime usize = 1000;
@@ -61,7 +56,7 @@ pub fn main() !void {
     var instance = try wasmtime.Instance.init(module, func);
     std.debug.warn("Instance initialized...\n", .{});
 
-    if (try instance.getFuncExport("hello")) |f| {
+    if (try instance.getFirstFuncExport()) |f| {
         std.debug.warn("Calling export...\n", .{});
         try f.call();
     } else {

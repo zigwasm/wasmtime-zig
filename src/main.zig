@@ -3,6 +3,8 @@ const testing = std.testing;
 
 pub const c = @import("c.zig");
 
+var CALLBACK: usize = undefined;
+
 pub const Error = error{ EngineInit, StoreInit, ModuleInit, FuncInit, InstanceInit };
 
 pub const Engine = struct {
@@ -114,6 +116,12 @@ pub const Module = struct {
     }
 };
 
+fn cb(params: ?*const c.wasm_val_t, results: ?*c.wasm_val_t) callconv(.C) ?*c_void {
+    const func = @intToPtr(fn () void, CALLBACK);
+    func();
+    return null;
+}
+
 pub const Func = struct {
     func: *c_void,
 
@@ -126,14 +134,11 @@ pub const Func = struct {
                 if (cb_meta.Fn.args.len > 0 or cb_meta.Fn.return_type.? != void) {
                     @compileError("only callbacks with no input args and no results are currently supported");
                 }
-
-                const hmm = fn cb(params: ?*const wasmtime.c.wasm_val_t, results: ?*wasmtime.c.wasm_val_t) callconv(.C) ?*c_void {
-                    callback();
-                    return null;
-                };
             },
             else => @compileError("only functions can be used as callbacks into Wasm"),
         }
+        CALLBACK = @ptrToInt(callback);
+
         var args: c.wasm_valtype_vec_t = undefined;
         var results: c.wasm_valtype_vec_t = undefined;
         c.wasm_valtype_vec_new_empty(&args);
@@ -142,7 +147,7 @@ pub const Func = struct {
         const functype = c.wasm_functype_new(&args, &results) orelse return Error.FuncInit;
         defer c.wasm_functype_delete(functype);
 
-        const func = c.wasm_func_new(store.store, functype, callback) orelse return Error.FuncInit;
+        const func = c.wasm_func_new(store.store, functype, cb) orelse return Error.FuncInit;
         return Self{
             .func = func,
         };
@@ -189,7 +194,7 @@ pub const Instance = struct {
         };
     }
 
-    pub fn getFuncExport(self: Self, name: []const u8) !?Callable {
+    pub fn getFirstFuncExport(self: Self) !?Callable {
         var externs: c.wasm_extern_vec_t = undefined;
         c.wasm_instance_exports(self.instance, &externs);
         defer c.wasm_extern_vec_delete(&externs);
