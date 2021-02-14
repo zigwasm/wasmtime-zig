@@ -1,5 +1,6 @@
 const std = @import("std");
 const testing = std.testing;
+const log = std.log.scoped(.wasmtime_zig);
 
 pub const c = @import("c.zig");
 
@@ -46,7 +47,7 @@ pub const Module = struct {
 
     const Self = @This();
 
-    pub fn initFromWasm(store: Store, wasm: []const u8) !Self {
+    pub fn initFromWasm(engine: Engine, wasm: []const u8) !Self {
         var wasm_bytes: c.wasm_byte_vec_t = undefined;
         c.wasm_byte_vec_new_uninitialized(&wasm_bytes, wasm.len);
         defer c.wasm_byte_vec_delete(&wasm_bytes);
@@ -58,10 +59,10 @@ pub const Module = struct {
             ptr += 1;
         }
 
-        return Self.init(store, &wasm_bytes);
+        return Self.init(engine, &wasm_bytes);
     }
 
-    pub fn initFromWat(store: Store, wat: []const u8) !Self {
+    pub fn initFromWat(engine: Engine, wat: []const u8) !Self {
         var wat_bytes: c.wasm_byte_vec_t = undefined;
         c.wasm_byte_vec_new_uninitialized(&wat_bytes, wat.len);
         defer c.wasm_byte_vec_delete(&wat_bytes);
@@ -72,7 +73,6 @@ pub const Module = struct {
             ptr.* = wat[i];
             ptr += 1;
         }
-
         var wasm_bytes: c.wasm_byte_vec_t = undefined;
         const err = c.wasmtime_wat2wasm(&wat_bytes, &wasm_bytes);
         errdefer c.wasmtime_error_delete(err.?);
@@ -84,16 +84,16 @@ pub const Module = struct {
             defer c.wasm_byte_vec_delete(&msg);
 
             // TODO print error message
-            std.debug.warn("unexpected error occurred", .{});
+            log.err("unexpected error occurred", .{});
             return Error.ModuleInit;
         }
 
-        return Self.init(store, &wasm_bytes);
+        return Self.init(engine, &wasm_bytes);
     }
 
-    fn init(store: Store, wasm_bytes: *c.wasm_byte_vec_t) !Self {
+    fn init(engine: Engine, wasm_bytes: *c.wasm_byte_vec_t) !Self {
         var module: ?*c_void = null;
-        const err = c.wasmtime_module_new(store.store, wasm_bytes, &module);
+        const err = c.wasmtime_module_new(engine.engine, wasm_bytes, &module);
         errdefer c.wasmtime_error_delete(err.?);
 
         if (err) |e| {
@@ -102,7 +102,7 @@ pub const Module = struct {
             defer c.wasm_byte_vec_delete(&msg);
 
             // TODO print error message
-            std.debug.warn("unexpected error occurred", .{});
+            log.err("unexpected error occurred", .{});
             return Error.ModuleInit;
         }
 
@@ -127,7 +127,7 @@ pub const Func = struct {
 
     const Self = @This();
 
-    pub fn init(store: Store, callback: var) !Self {
+    pub fn init(store: Store, callback: anytype) !Self {
         const cb_meta = @typeInfo(@TypeOf(callback));
         switch (cb_meta) {
             .Fn => {
@@ -160,11 +160,25 @@ pub const Instance = struct {
     const Self = @This();
 
     // TODO accepts a list of imports
-    pub fn init(module: Module, import: Func) !Self {
+    pub fn init(store: Store, module: Module, import: Func) !Self {
         var trap: ?*c_void = null;
         var instance: ?*c_void = null;
-        const imports = [_]?*c_void{c.wasm_func_as_extern(import.func)};
-        const err = c.wasmtime_instance_new(module.module, &imports, 1, &instance, &trap);
+        const imports_vec = c.wasm_extern_vec_t{
+            .size = 1,
+            .data = &[_]?*c_void{c.wasm_func_as_extern(import.func)},
+        };
+        var imports: c.wasm_extern_vec_t = undefined;
+        c.wasm_extern_vec_new_uninitialized(&imports, 1);
+        defer c.wasm_extern_vec_delete(&imports);
+
+        var i: usize = 0;
+        var ptr = imports.data;
+        while (i < imports.size) : (i += 1) {
+            ptr.* = c.wasm_func_as_extern(import.func);
+            ptr += 1;
+        }
+
+        const err = c.wasmtime_instance_new(store.store, module.module, &imports, &instance, &trap);
         errdefer {
             if (err) |e| {
                 c.wasmtime_error_delete(e);
@@ -200,7 +214,7 @@ pub const Instance = struct {
         defer c.wasm_extern_vec_delete(&externs);
 
         // TODO handle finding the export by name.
-        const run_func = c.wasm_extern_as_func(externs.data[0]) orelse return null;
+        const run_func = c.wasm_extern_as_func(externs.data[0].?) orelse return null;
         const owned = c.wasm_func_copy(run_func);
         return Callable{
             .func = owned.?,
@@ -244,8 +258,6 @@ pub const Callable = struct {
     }
 };
 
-test "" {
-    _ = Engine;
-    _ = Store;
-    _ = Module;
+test {
+    testing.refAllDecls(@This());
 }
