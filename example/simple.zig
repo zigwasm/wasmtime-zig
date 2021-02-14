@@ -6,8 +6,8 @@ const ga = std.heap.c_allocator;
 const Allocator = std.mem.Allocator;
 
 fn hello() void {
-    std.debug.warn("Calling back...\n", .{});
-    std.debug.warn("> Hello World!\n", .{});
+    std.debug.print("Calling back...\n", .{});
+    std.debug.print("> Hello World!\n", .{});
 }
 
 fn readToEnd(file: fs.File, alloc: *Allocator) ![]u8 {
@@ -46,14 +46,14 @@ pub fn main() !void {
     defer store.deinit();
     std.debug.warn("Store initialized...\n", .{});
 
-    var module = try wasmtime.Module.initFromWat(store, wasm);
+    var module = try wasmtime.Module.initFromWat(engine, wasm);
     defer module.deinit();
     std.debug.warn("Wasm module compiled...\n", .{});
 
     var func = try wasmtime.Func.init(store, hello);
     std.debug.warn("Func callback prepared...\n", .{});
 
-    var instance = try wasmtime.Instance.init(module, func);
+    var instance = try wasmtime.Instance.init(store, module, func);
     std.debug.warn("Instance initialized...\n", .{});
 
     if (try instance.getFirstFuncExport()) |f| {
