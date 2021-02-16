@@ -39,17 +39,17 @@ jobs:
     - name: Install libwasmtime (ubuntu)
       if: matrix.os == 'ubuntu'
       run: |
-        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-linux-c-api.tar.xz -o wasmtime.tar.xz
+        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.22.0/wasmtime-v0.22.0-x86_64-linux-c-api.tar.xz -o wasmtime.tar.xz
         tar -C . --strip-components 2 --wildcards -xvf wasmtime.tar.xz */lib/libwasmtime.a
     - name: Install libwasmtime (macOS)
       if: matrix.os == 'macos'
       run: |
-        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-macos-c-api.tar.xz -o wasmtime.tar.xz
+        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.22.0/wasmtime-v0.22.0-x86_64-macos-c-api.tar.xz -o wasmtime.tar.xz
         tar -C . --strip-components 2 -xvf wasmtime.tar.xz */lib/libwasmtime.a
     - name: Install libwasmtime (windows)
       if: matrix.os == 'windows'
       run: |
-        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.16.0/wasmtime-v0.16.0-x86_64-windows-c-api.zip -o wasmtime.zip
+        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.22.0/wasmtime-v0.22.0-x86_64-windows-c-api.zip -o wasmtime.zip
         7z e -i!"*/lib/wasmtime.dll.lib" wasmtime.zip
         7z e -i!"*/lib/wasmtime.dll" wasmtime.zip
     - name: zig build
