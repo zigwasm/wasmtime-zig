@@ -54,11 +54,11 @@ pub extern fn wasm_store_delete(store: *c_void) void;
 
 // Module
 pub extern fn wasmtime_module_new(engine: *c_void, wasm: *wasm_byte_vec_t, module: *?*c_void) ?*c_void;
+pub extern fn wasmtime_module_validate(store: *c_void, wasm: *wasm_byte_vec_t) ?*c_void;
 pub extern fn wasm_module_delete(module: *c_void) void;
 
 // Instance
-pub extern fn wasm_instance_new(store: *c_void, module: *const c_void, imports: *const wasm_extern_vec_t, trap: *?*c_void) ?*c_void;
-pub extern fn wasmtime_instance_new(store: *c_void, module: *const c_void, imports: *const wasm_extern_vec_t, instance: *?*c_void, trap: *?*c_void) ?*c_void;
+pub extern fn wasmtime_instance_new(store: *c_void, module: *const c_void, imports: [*]const ?*const c_void, size: usize, instance: *?*c_void, trap: *?*c_void) ?*c_void;
 pub extern fn wasm_instance_delete(instance: *c_void) void;
 pub extern fn wasm_instance_exports(instance: *c_void, externs: *wasm_extern_vec_t) void;
 
