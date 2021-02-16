@@ -163,22 +163,9 @@ pub const Instance = struct {
     pub fn init(store: Store, module: Module, import: Func) !Self {
         var trap: ?*c_void = null;
         var instance: ?*c_void = null;
-        const imports_vec = c.wasm_extern_vec_t{
-            .size = 1,
-            .data = &[_]?*c_void{c.wasm_func_as_extern(import.func)},
-        };
-        var imports: c.wasm_extern_vec_t = undefined;
-        c.wasm_extern_vec_new_uninitialized(&imports, 1);
-        defer c.wasm_extern_vec_delete(&imports);
+        const imports = [_]?*c_void{c.wasm_func_as_extern(import.func)};
 
-        var i: usize = 0;
-        var ptr = imports.data;
-        while (i < imports.size) : (i += 1) {
-            ptr.* = c.wasm_func_as_extern(import.func);
-            ptr += 1;
-        }
-
-        const err = c.wasmtime_instance_new(store.store, module.module, &imports, &instance, &trap);
+        const err = c.wasmtime_instance_new(store.store, module.module, &imports, 1, &instance, &trap);
         errdefer {
             if (err) |e| {
                 c.wasmtime_error_delete(e);
