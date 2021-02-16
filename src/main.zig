@@ -245,6 +245,6 @@ pub const Callable = struct {
     }
 };
 
-test {
+test "" {
     testing.refAllDecls(@This());
 }
