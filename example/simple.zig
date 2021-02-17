@@ -56,7 +56,7 @@ pub fn main() !void {
     var instance = try wasmtime.Instance.init(store, module, func);
     std.debug.warn("Instance initialized...\n", .{});
 
-    if (try instance.getFirstFuncExport()) |f| {
+    if (instance.getExportFunc("run")) |f| {
         std.debug.warn("Calling export...\n", .{});
         try f.call();
     } else {
