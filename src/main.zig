@@ -120,7 +120,7 @@ pub const Module = opaque {
     extern fn wasm_module_delete(*Module) void;
 };
 
-fn cb(params: ?*const c.wasm_val_t, results: ?*c.wasm_val_t) callconv(.C) ?*c_void {
+fn cb(params: ?*const c.Valtype, results: ?*c.Valtype) callconv(.C) ?*c.Trap {
     const func = @intToPtr(fn () void, CALLBACK);
     func();
     return null;
@@ -149,18 +149,18 @@ pub const Func = opaque {
     }
 
     /// Returns the `Func` as an `c.Extern`
-    pub fn asExtern(self: *Func) ?*c.Extern {
-        return wasm_func_as_extern(self);
+    pub fn asExtern(self: *Func) *c.Extern {
+        return wasm_func_as_extern(self).?;
     }
 
     /// Returns the `Func` from an `c.Extern`
-    pub fn fromExtern(extern_func: *c.Extern) ?*Func {
-        return @ptrCast(?*Func, extern_func.asFunc());
+    pub fn fromExtern(extern_func: *c.Extern) *Func {
+        return @ptrCast(?*Func, extern_func.asFunc()).?;
     }
 
     /// Returns an owned copy of the current `Func`
-    pub fn copy(self: *Func) ?*Func {
-        return self.wasm_func_copy();
+    pub fn copy(self: *Func) *Func {
+        return self.wasm_func_copy().?;
     }
 
     /// Tries to call the wasm function
@@ -177,7 +177,7 @@ pub const Func = opaque {
             defer msg.deinit();
 
             // TODO print error message
-            log.err("Unable to call function: {s}", .{msg.toSlice()});
+            log.err("Unable to call function: '{s}'", .{msg.toSlice()});
             return Error.InstanceInit;
         }
         if (trap) |t| {
@@ -192,9 +192,9 @@ pub const Func = opaque {
     extern fn wasm_func_copy(*Func) ?*Func;
     extern fn wasmtime_func_call(
         *Func,
-        args: ?*const c.wasm_val_t,
+        args: ?*const c.Valtype,
         args_size: usize,
-        results: ?*c.wasm_val_t,
+        results: ?*c.Valtype,
         results_size: usize,
         trap: *?*c.Trap,
     ) ?*c.WasmError;
@@ -217,8 +217,7 @@ pub const Instance = opaque {
             var msg = e.getMessage();
             defer msg.deinit();
 
-            // TODO print error message
-            log.err("unexpected error occurred", .{});
+            log.err("unexpected error occurred: '{s}'", .{msg.toSlice()});
             return Error.InstanceInit;
         }
         if (trap) |t| {
@@ -230,17 +229,47 @@ pub const Instance = opaque {
         return instance.?;
     }
 
-    pub fn getFirstFuncExport(self: *Instance) !?*Func {
-        var externs: c.wasm_extern_vec_t = undefined;
+    pub fn getFirstFuncExport(self: *Instance) ?*Func {
+        var externs: c.ExternVec = undefined;
         wasm_instance_exports(self, &externs);
-        defer c.wasm_extern_vec_delete(&externs);
+        defer externs.deinit();
+
+        if (externs.size == 0) return null;
 
         // TODO handle finding the export by name.
-        const run_func = Func.fromExtern(externs.data[0].?) orelse return null;
-        const owned = run_func.copy();
-        return owned.?;
+        const run_func = Func.fromExtern(externs.data[0]);
+        return run_func.copy();
     }
 
+    /// Returns an export by its name if found
+    /// returns null if not found
+    pub fn getExportFunc(self: *Instance, name: []const u8) ?*Func {
+        var externs: c.ExternVec = undefined;
+        self.wasm_instance_exports(&externs);
+        defer externs.deinit();
+
+        const instance_type = self.getType();
+        defer instance_type.deinit();
+
+        const type_exports = instance_type.exports();
+        defer type_exports.deinit();
+
+        return for (type_exports.toSlice()) |ty, index| {
+            const type_name = ty.name();
+            defer type_name.deinit();
+
+            if (std.mem.eql(u8, name, type_name.toSlice())) {
+                const ext = externs.data[index];
+                break Func.fromExtern(ext).copy();
+            }
+        } else null;
+    }
+
+    pub fn getType(self: *Instance) *c.InstanceType {
+        return self.wasm_instance_type().?;
+    }
+
+    /// Frees the `Instance`'s resources
     pub fn deinit(self: *Instance) void {
         self.wasm_instance_delete();
     }
@@ -254,7 +283,8 @@ pub const Instance = opaque {
         trap: *?*c.Trap,
     ) ?*c.WasmError;
     extern fn wasmtime_instance_delete(*Instance) void;
-    extern fn wasm_instance_exports(*Instance, *c.wasm_extern_vec_t) void;
+    extern fn wasm_instance_exports(*Instance, *c.ExternVec) void;
+    extern fn wasm_instance_type(*Instance) ?*c.InstanceType;
 };
 
 test "" {

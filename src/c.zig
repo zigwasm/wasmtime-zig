@@ -1,8 +1,8 @@
 pub const WasmError = opaque {
     /// Gets the error message
-    pub fn getMessage(self: *WasmError) ByteVec {
-        var bytes: ByteVec = undefined;
-        wasmtime_error_message(self, &bytes);
+    pub fn getMessage(self: *WasmError) *ByteVec {
+        const bytes: *ByteVec = undefined;
+        wasmtime_error_message(self, bytes);
         return bytes;
     }
 
@@ -28,9 +28,48 @@ pub const Extern = opaque {
     pub fn asFunc(self: *Extern) ?*c_void {
         return wasm_extern_as_func(self);
     }
+
+    extern fn wasm_extern_as_func(external: *c_void) ?*c_void;
 };
 
-pub const Callback = fn (?*const wasm_val_t, ?*wasm_val_t) callconv(.C) ?*c_void;
+pub const ExportType = opaque {
+    pub fn name(self: *ExportType) *ByteVec {
+        return self.wasm_exporttype_name().?;
+    }
+    extern fn wasm_exporttype_name(*ExportType) ?*ByteVec;
+};
+
+pub const ExportTypeVec = extern struct {
+    size: usize,
+    data: [*]*ExportType,
+
+    pub fn toSlice(self: *ExportTypeVec) []const *ExportType {
+        return self.data[0..self.size];
+    }
+
+    pub fn deinit(self: *ExportTypeVec) void {
+        self.wasm_exporttype_vec_delete();
+    }
+
+    extern fn wasm_exporttype_vec_delete(*ExportTypeVec) void;
+};
+
+pub const InstanceType = opaque {
+    pub fn deinit(self: *InstanceType) void {
+        self.wasm_instancetype_delete();
+    }
+
+    pub fn exports(self: *InstanceType) *ExportTypeVec {
+        var export_vec: ExportTypeVec = undefined;
+        self.wasm_instancetype_exports(&export_vec);
+        return &export_vec;
+    }
+
+    extern fn wasm_instancetype_delete(*InstanceType) void;
+    extern fn wasm_instancetype_exports(*InstanceType, ?*ExportTypeVec) void;
+};
+
+pub const Callback = fn (?*const Valtype, ?*Valtype) callconv(.C) ?*Trap;
 
 // Bits
 pub const ByteVec = extern struct {
@@ -53,32 +92,39 @@ pub const ByteVec = extern struct {
     pub fn deinit(self: *ByteVec) void {
         wasm_byte_vec_delete(self);
     }
+
+    extern fn wasm_byte_vec_new_uninitialized(ptr: *ByteVec, size: usize) void;
+    extern fn wasm_byte_vec_delete(ptr: *ByteVec) void;
 };
 
-// pub const ByteVec = ByteVec;
-
-pub extern fn wasm_byte_vec_new_uninitialized(ptr: *ByteVec, size: usize) void;
-extern fn wasm_byte_vec_delete(ptr: *ByteVec) void;
-
-pub const wasm_extern_vec_t = extern struct {
+pub const ExternVec = extern struct {
     size: usize,
-    data: [*]?*Extern,
+    data: [*]*Extern,
+
+    pub fn empty() ExternVec {
+        return .{ .size = 0, .data = undefined };
+    }
+
+    pub fn deinit(self: *ExternVec) void {
+        wasm_extern_vec_delete(self);
+    }
+
+    extern fn wasm_extern_vec_new_empty(ptr: *ExternVec) void;
+    extern fn wasm_extern_vec_new_uninitialized(ptr: *ExternVec, size: usize) void;
+    extern fn wasm_extern_vec_delete(ptr: *ExternVec) void;
 };
 
-pub extern fn wasm_extern_vec_new_empty(ptr: *wasm_extern_vec_t) void;
-pub extern fn wasm_extern_vec_new_uninitialized(ptr: *wasm_extern_vec_t, size: usize) void;
-pub extern fn wasm_extern_vec_delete(ptr: *wasm_extern_vec_t) void;
+pub const Valkind = extern enum(u8) {
+    i32 = 0,
+    i64 = 1,
+    f32 = 2,
+    f64 = 3,
+    anyref = 128,
+    funcref = 129,
+};
 
-pub const wasm_valkind_t = u8;
-pub const VALKIND_WASM_I32 = 0;
-pub const VALKIND_WASM_I64 = 1;
-pub const VALKIND_WASM_F32 = 2;
-pub const VALKIND_WASM_F64 = 3;
-pub const VALKIND_WASM_ANYREF = 128;
-pub const VALKIND_WASM_FUNCREF = 129;
-
-pub const wasm_val_t = extern struct {
-    kind: wasm_valkind_t,
+pub const Valtype = extern struct {
+    kind: Valkind,
     of: extern union {
         int32: i32,
         int64: i64,
@@ -88,42 +134,18 @@ pub const wasm_val_t = extern struct {
     },
 };
 
-pub const wasm_valtype_vec_t = extern struct {
+pub const ValtypeVec = extern struct {
     size: usize,
-    data: [*]?*c_void,
+    data: [*]?*Valtype,
 
-    pub fn empty() wasm_valtype_vec_t {
-        var ptr: wasm_valtype_vec_t = undefined;
-        wasm_valtype_vec_new_empty(&ptr);
-        return ptr;
+    pub fn empty() ValtypeVec {
+        return .{ .size = 0, .data = undefined };
     }
 };
 
-pub const ValtypeVec = wasm_valtype_vec_t;
-
-pub extern fn wasm_valtype_vec_new_empty(ptr: *wasm_valtype_vec_t) void;
-
-// Engine
-pub extern fn wasm_engine_delete(engine: *c_void) void;
-
-// Store
-pub extern fn wasm_store_new(engine: *c_void) ?*c_void;
-pub extern fn wasm_store_delete(store: *c_void) void;
-
 // Func
-pub extern fn wasm_functype_new(args: *wasm_valtype_vec_t, results: *wasm_valtype_vec_t) ?*c_void;
+pub extern fn wasm_functype_new(args: *ValtypeVec, results: *ValtypeVec) ?*c_void;
 pub extern fn wasm_functype_delete(functype: *c_void) void;
-
-pub extern fn wasm_func_new(store: *c_void, functype: *c_void, callback: Callback) ?*c_void;
-pub extern fn wasm_func_copy(func: *c_void) ?*c_void;
-
-pub extern fn wasm_func_as_extern(func: *c_void) ?*c_void;
-pub extern fn wasm_extern_as_func(external: *c_void) ?*c_void;
-
-pub extern fn wasmtime_func_call(func: *c_void, args: ?*const wasm_val_t, args_size: usize, results: ?*wasm_val_t, results_size: usize, trap: *?*c_void) ?*WasmError;
-
-// Error handling
-pub extern fn wasm_trap_delete(trap: *c_void) void;
 
 // Helpers
 pub extern fn wasmtime_wat2wasm(wat: *ByteVec, wasm: *ByteVec) ?*WasmError;
