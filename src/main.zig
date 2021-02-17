@@ -6,51 +6,55 @@ pub const c = @import("c.zig");
 
 var CALLBACK: usize = undefined;
 
-pub const Error = error{ EngineInit, StoreInit, ModuleInit, FuncInit, InstanceInit };
-
-pub const Engine = struct {
-    engine: *c_void,
-
-    const Self = @This();
-
-    pub fn init() !Self {
-        const engine = c.wasm_engine_new() orelse return Error.EngineInit;
-        return Self{
-            .engine = engine,
-        };
-    }
-
-    pub fn deinit(self: Self) void {
-        c.wasm_engine_delete(self.engine);
-    }
+pub const Error = error{
+    /// Failed to initialize an `Engine` (i.e. invalid config)
+    EngineInit,
+    /// Failed to initialize a `Store`
+    StoreInit,
+    /// Failed to initialize a `Module`
+    ModuleInit,
+    /// Failed to create a wasm function based on
+    /// the given `Store` and functype
+    FuncInit,
+    /// Failed to initialize a new `Instance`
+    InstanceInit,
 };
 
-pub const Store = struct {
-    store: *c_void,
-
-    const Self = @This();
-
-    pub fn init(engine: Engine) !Self {
-        const store = c.wasm_store_new(engine.engine) orelse return Error.StoreInit;
-        return Self{
-            .store = store,
-        };
+pub const Engine = opaque {
+    /// Initializes a new `Engine`
+    pub fn init() !*Engine {
+        return wasm_engine_new() orelse Error.EngineInit;
     }
 
-    pub fn deinit(self: Self) void {
-        c.wasm_store_delete(self.store);
+    /// Frees the resources of the `Engine`
+    pub fn deinit(self: *Engine) void {
+        wasm_engine_delete(self);
     }
+
+    extern fn wasm_engine_new() ?*Engine;
+    extern fn wasm_engine_delete(*Engine) void;
 };
 
-pub const Module = struct {
-    module: *c_void,
+pub const Store = opaque {
+    /// Initializes a new `Store` based on the given `Engine`
+    pub fn init(engine: *Engine) !*Store {
+        return wasm_store_new(engine) orelse Error.StoreInit;
+    }
 
-    const Self = @This();
+    /// Frees the resource of the `Store` itself
+    pub fn deinit(self: *Store) void {
+        wasm_store_delete(self);
+    }
 
-    pub fn initFromWasm(engine: Engine, wasm: []const u8) !Self {
-        var wasm_bytes: c.wasm_byte_vec_t = undefined;
-        c.wasm_byte_vec_new_uninitialized(&wasm_bytes, wasm.len);
-        defer c.wasm_byte_vec_delete(&wasm_bytes);
+    extern fn wasm_store_new(*Engine) ?*Store;
+    extern fn wasm_store_delete(*Store) void;
+};
+
+pub const Module = opaque {
+    /// Initializes a new `Module` using the supplied engine and wasm bytecode
+    pub fn initFromWasm(engine: *Engine, wasm: []const u8) !*Module {
+        var wasm_bytes = c.ByteVec.initWithCapacity(wasm.len);
+        defer wasm_bytes.deinit();
 
         var i: usize = 0;
         var ptr = wasm_bytes.data;
@@ -59,13 +63,14 @@ pub const Module = struct {
             ptr += 1;
         }
 
-        return Self.init(engine, &wasm_bytes);
+        return Module.init(engine, wasm_bytes);
     }
 
-    pub fn initFromWat(engine: Engine, wat: []const u8) !Self {
-        var wat_bytes: c.wasm_byte_vec_t = undefined;
-        c.wasm_byte_vec_new_uninitialized(&wat_bytes, wat.len);
-        defer c.wasm_byte_vec_delete(&wat_bytes);
+    /// Initializes a new `Module` by first converting the given wat format
+    /// into wasm bytecode.
+    pub fn initFromWat(engine: *Engine, wat: []const u8) !*Module {
+        var wat_bytes = c.ByteVec.initWithCapacity(wat.len);
+        defer wat_bytes.deinit();
 
         var i: usize = 0;
         var ptr = wat_bytes.data;
@@ -73,47 +78,46 @@ pub const Module = struct {
             ptr.* = wat[i];
             ptr += 1;
         }
-        var wasm_bytes: c.wasm_byte_vec_t = undefined;
+        var wasm_bytes: c.ByteVec = undefined;
         const err = c.wasmtime_wat2wasm(&wat_bytes, &wasm_bytes);
-        errdefer c.wasmtime_error_delete(err.?);
-        defer c.wasm_byte_vec_delete(&wasm_bytes);
+        errdefer err.?.deinit();
+        defer wasm_bytes.deinit();
 
         if (err) |e| {
-            var msg: c.wasm_byte_vec_t = undefined;
-            c.wasmtime_error_message(e, &msg);
-            defer c.wasm_byte_vec_delete(&msg);
+            var msg = e.getMessage();
+            defer msg.deinit();
 
             // TODO print error message
             log.err("unexpected error occurred", .{});
             return Error.ModuleInit;
         }
 
-        return Self.init(engine, &wasm_bytes);
+        return Module.init(engine, &wasm_bytes);
     }
 
-    fn init(engine: Engine, wasm_bytes: *c.wasm_byte_vec_t) !Self {
-        var module: ?*c_void = null;
-        const err = c.wasmtime_module_new(engine.engine, wasm_bytes, &module);
-        errdefer c.wasmtime_error_delete(err.?);
+    fn init(engine: *Engine, wasm_bytes: *c.ByteVec) !*Module {
+        var module: ?*Module = undefined;
+        const err = wasmtime_module_new(engine, wasm_bytes, &module);
+        errdefer err.?.deinit();
 
         if (err) |e| {
-            var msg: c.wasm_byte_vec_t = undefined;
-            c.wasmtime_error_message(e, &msg);
-            defer c.wasm_byte_vec_delete(&msg);
+            var msg = e.getMessage();
+            defer msg.deinit();
 
             // TODO print error message
             log.err("unexpected error occurred", .{});
             return Error.ModuleInit;
         }
 
-        return Self{
-            .module = module.?,
-        };
+        return module.?;
     }
 
-    pub fn deinit(self: Self) void {
-        c.wasm_module_delete(self.module);
+    pub fn deinit(self: *Module) void {
+        wasm_module_delete(self);
     }
+
+    extern fn wasmtime_module_new(*Engine, *c.ByteVec, *?*Module) ?*c.WasmError;
+    extern fn wasm_module_delete(*Module) void;
 };
 
 fn cb(params: ?*const c.wasm_val_t, results: ?*c.wasm_val_t) callconv(.C) ?*c_void {
@@ -122,12 +126,8 @@ fn cb(params: ?*const c.wasm_val_t, results: ?*c.wasm_val_t) callconv(.C) ?*c_vo
     return null;
 }
 
-pub const Func = struct {
-    func: *c_void,
-
-    const Self = @This();
-
-    pub fn init(store: Store, callback: anytype) !Self {
+pub const Func = opaque {
+    pub fn init(store: *Store, callback: anytype) !*Func {
         const cb_meta = @typeInfo(@TypeOf(callback));
         switch (cb_meta) {
             .Fn => {
@@ -139,110 +139,122 @@ pub const Func = struct {
         }
         CALLBACK = @ptrToInt(callback);
 
-        var args: c.wasm_valtype_vec_t = undefined;
-        var results: c.wasm_valtype_vec_t = undefined;
-        c.wasm_valtype_vec_new_empty(&args);
-        c.wasm_valtype_vec_new_empty(&results);
+        var args = c.ValtypeVec.empty();
+        var results = c.ValtypeVec.empty();
 
         const functype = c.wasm_functype_new(&args, &results) orelse return Error.FuncInit;
         defer c.wasm_functype_delete(functype);
 
-        const func = c.wasm_func_new(store.store, functype, cb) orelse return Error.FuncInit;
-        return Self{
-            .func = func,
-        };
+        return wasm_func_new(store, functype, cb) orelse Error.FuncInit;
     }
-};
 
-pub const Instance = struct {
-    instance: *c_void,
+    /// Returns the `Func` as an `c.Extern`
+    pub fn asExtern(self: *Func) ?*c.Extern {
+        return wasm_func_as_extern(self);
+    }
 
-    const Self = @This();
+    /// Returns the `Func` from an `c.Extern`
+    pub fn fromExtern(extern_func: *c.Extern) ?*Func {
+        return @ptrCast(?*Func, extern_func.asFunc());
+    }
 
-    // TODO accepts a list of imports
-    pub fn init(store: Store, module: Module, import: Func) !Self {
-        var trap: ?*c_void = null;
-        var instance: ?*c_void = null;
-        const imports = [_]?*c_void{c.wasm_func_as_extern(import.func)};
+    /// Returns an owned copy of the current `Func`
+    pub fn copy(self: *Func) ?*Func {
+        return self.wasm_func_copy();
+    }
 
-        const err = c.wasmtime_instance_new(store.store, module.module, &imports, 1, &instance, &trap);
+    /// Tries to call the wasm function
+    pub fn call(self: *Func) !void {
+        var trap: ?*c.Trap = null;
+        const err = wasmtime_func_call(self, null, 0, null, 0, &trap);
         errdefer {
-            if (err) |e| {
-                c.wasmtime_error_delete(e);
-            }
-            if (trap) |t| {
-                c.wasm_trap_delete(t);
-            }
+            if (err) |e| e.deinit();
+            if (trap) |t| t.deinit();
         }
 
         if (err) |e| {
-            var msg: c.wasm_byte_vec_t = undefined;
-            c.wasmtime_error_message(e, &msg);
-            defer c.wasm_byte_vec_delete(&msg);
+            var msg = e.getMessage();
+            defer msg.deinit();
 
             // TODO print error message
-            std.debug.warn("unexpected error occurred", .{});
+            log.err("Unable to call function: {s}", .{msg.toSlice()});
             return Error.InstanceInit;
         }
         if (trap) |t| {
             // TODO handle trap message
-            std.debug.warn("code unexpectedly trapped", .{});
+            log.err("code unexpectedly trapped", .{});
+            return Error.InstanceInit;
+        }
+    }
+
+    extern fn wasm_func_new(*Store, functype: ?*c_void, callback: c.Callback) ?*Func;
+    extern fn wasm_func_as_extern(*Func) ?*c.Extern;
+    extern fn wasm_func_copy(*Func) ?*Func;
+    extern fn wasmtime_func_call(
+        *Func,
+        args: ?*const c.wasm_val_t,
+        args_size: usize,
+        results: ?*c.wasm_val_t,
+        results_size: usize,
+        trap: *?*c.Trap,
+    ) ?*c.WasmError;
+};
+
+pub const Instance = opaque {
+    // TODO accepts a list of imports
+    pub fn init(store: *Store, module: *Module, import: *Func) !*Instance {
+        var trap: ?*c.Trap = null;
+        var instance: ?*Instance = null;
+        const imports = [_]?*c.Extern{import.asExtern()};
+
+        const err = wasmtime_instance_new(store, module, &imports, 1, &instance, &trap);
+        errdefer {
+            if (err) |e| e.deinit();
+            if (trap) |t| t.deinit();
+        }
+
+        if (err) |e| {
+            var msg = e.getMessage();
+            defer msg.deinit();
+
+            // TODO print error message
+            log.err("unexpected error occurred", .{});
+            return Error.InstanceInit;
+        }
+        if (trap) |t| {
+            // TODO handle trap message
+            log.err("code unexpectedly trapped", .{});
             return Error.InstanceInit;
         }
 
-        return Self{
-            .instance = instance.?,
-        };
+        return instance.?;
     }
 
-    pub fn getFirstFuncExport(self: Self) !?Callable {
+    pub fn getFirstFuncExport(self: *Instance) !?*Func {
         var externs: c.wasm_extern_vec_t = undefined;
-        c.wasm_instance_exports(self.instance, &externs);
+        wasm_instance_exports(self, &externs);
         defer c.wasm_extern_vec_delete(&externs);
 
         // TODO handle finding the export by name.
-        const run_func = c.wasm_extern_as_func(externs.data[0].?) orelse return null;
-        const owned = c.wasm_func_copy(run_func);
-        return Callable{
-            .func = owned.?,
-        };
+        const run_func = Func.fromExtern(externs.data[0].?) orelse return null;
+        const owned = run_func.copy();
+        return owned.?;
     }
 
-    pub fn deinit(self: Self) void {
-        c.wasm_instance_delete(self.instance);
+    pub fn deinit(self: *Instance) void {
+        self.wasm_instance_delete();
     }
-};
 
-pub const Callable = struct {
-    func: *c_void,
-
-    pub fn call(self: Callable) !void {
-        var trap: ?*c_void = null;
-        const err = c.wasmtime_func_call(self.func, null, 0, null, 0, &trap);
-        errdefer {
-            if (err) |e| {
-                c.wasmtime_error_delete(e);
-            }
-            if (trap) |t| {
-                c.wasm_trap_delete(t);
-            }
-        }
-
-        if (err) |e| {
-            var msg: c.wasm_byte_vec_t = undefined;
-            c.wasmtime_error_message(e, &msg);
-            defer c.wasm_byte_vec_delete(&msg);
-
-            // TODO print error message
-            std.debug.warn("unexpected error occurred", .{});
-            return Error.InstanceInit;
-        }
-        if (trap) |t| {
-            // TODO handle trap message
-            std.debug.warn("code unexpectedly trapped", .{});
-            return Error.InstanceInit;
-        }
-    }
+    extern fn wasmtime_instance_new(
+        store: *Store,
+        module: *const Module,
+        imports: [*]const ?*const c.Extern,
+        size: usize,
+        instance: *?*Instance,
+        trap: *?*c.Trap,
+    ) ?*c.WasmError;
+    extern fn wasmtime_instance_delete(*Instance) void;
+    extern fn wasm_instance_exports(*Instance, *c.wasm_extern_vec_t) void;
 };
 
 test "" {
