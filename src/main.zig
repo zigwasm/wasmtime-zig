@@ -87,8 +87,7 @@ pub const Module = opaque {
             var msg = e.getMessage();
             defer msg.deinit();
 
-            // TODO print error message
-            log.err("unexpected error occurred", .{});
+            log.err("unexpected error occurred: '{s}'", .{msg.toSlice()});
             return Error.ModuleInit;
         }
 
@@ -104,8 +103,7 @@ pub const Module = opaque {
             var msg = e.getMessage();
             defer msg.deinit();
 
-            // TODO print error message
-            log.err("unexpected error occurred", .{});
+            log.err("unexpected error occurred: '{s}'", .{msg.toSlice()});
             return Error.ModuleInit;
         }
 
@@ -149,16 +147,23 @@ pub const Func = opaque {
     }
 
     /// Returns the `Func` as an `c.Extern`
+    ///
+    /// Owned by `self` and shouldn't be deinitialized
     pub fn asExtern(self: *Func) *c.Extern {
         return wasm_func_as_extern(self).?;
     }
 
     /// Returns the `Func` from an `c.Extern`
-    pub fn fromExtern(extern_func: *c.Extern) *Func {
-        return @ptrCast(?*Func, extern_func.asFunc()).?;
+    /// return null if extern's type isn't a functype
+    ///
+    /// Owned by `extern_func` and shouldn't be deinitialized
+    pub fn fromExtern(extern_func: *c.Extern) ?*Func {
+        return @ptrCast(?*Func, extern_func.asFunc());
     }
 
-    /// Returns an owned copy of the current `Func`
+    /// Creates a copy of the current `Func`
+    /// returned copy is owned by the caller and must be freed
+    /// by the owner
     pub fn copy(self: *Func) *Func {
         return self.wasm_func_copy().?;
     }
@@ -176,7 +181,6 @@ pub const Func = opaque {
             var msg = e.getMessage();
             defer msg.deinit();
 
-            // TODO print error message
             log.err("Unable to call function: '{s}'", .{msg.toSlice()});
             return Error.InstanceInit;
         }
@@ -229,20 +233,9 @@ pub const Instance = opaque {
         return instance.?;
     }
 
-    pub fn getFirstFuncExport(self: *Instance) ?*Func {
-        var externs: c.ExternVec = undefined;
-        wasm_instance_exports(self, &externs);
-        defer externs.deinit();
-
-        if (externs.size == 0) return null;
-
-        // TODO handle finding the export by name.
-        const run_func = Func.fromExtern(externs.data[0]);
-        return run_func.copy();
-    }
-
     /// Returns an export by its name if found
     /// returns null if not found
+    /// The returned `Func` is a copy and must be freed by the caller
     pub fn getExportFunc(self: *Instance, name: []const u8) ?*Func {
         var externs: c.ExternVec = undefined;
         self.wasm_instance_exports(&externs);
@@ -251,20 +244,22 @@ pub const Instance = opaque {
         const instance_type = self.getType();
         defer instance_type.deinit();
 
-        const type_exports = instance_type.exports();
+        var type_exports = instance_type.exports();
         defer type_exports.deinit();
 
         return for (type_exports.toSlice()) |ty, index| {
-            const type_name = ty.name();
+            const t = ty orelse continue;
+            const type_name = t.name();
             defer type_name.deinit();
 
             if (std.mem.eql(u8, name, type_name.toSlice())) {
-                const ext = externs.data[index];
-                break Func.fromExtern(ext).copy();
+                const ext = externs.data[index] orelse return null;
+                break Func.fromExtern(ext).?.copy();
             }
         } else null;
     }
 
+    /// Returns the `c.InstanceType` of the `Instance`
     pub fn getType(self: *Instance) *c.InstanceType {
         return self.wasm_instance_type().?;
     }
@@ -284,7 +279,7 @@ pub const Instance = opaque {
     ) ?*c.WasmError;
     extern fn wasmtime_instance_delete(*Instance) void;
     extern fn wasm_instance_exports(*Instance, *c.ExternVec) void;
-    extern fn wasm_instance_type(*Instance) ?*c.InstanceType;
+    extern fn wasm_instance_type(*const Instance) ?*c.InstanceType;
 };
 
 test "" {

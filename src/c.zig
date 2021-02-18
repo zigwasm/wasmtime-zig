@@ -1,8 +1,8 @@
 pub const WasmError = opaque {
     /// Gets the error message
-    pub fn getMessage(self: *WasmError) *ByteVec {
-        const bytes: *ByteVec = undefined;
-        wasmtime_error_message(self, bytes);
+    pub fn getMessage(self: *WasmError) ByteVec {
+        var bytes: ByteVec = undefined;
+        wasmtime_error_message(self, &bytes);
         return bytes;
     }
 
@@ -41,9 +41,9 @@ pub const ExportType = opaque {
 
 pub const ExportTypeVec = extern struct {
     size: usize,
-    data: [*]*ExportType,
+    data: [*]?*ExportType,
 
-    pub fn toSlice(self: *ExportTypeVec) []const *ExportType {
+    pub fn toSlice(self: *const ExportTypeVec) []const ?*ExportType {
         return self.data[0..self.size];
     }
 
@@ -59,10 +59,10 @@ pub const InstanceType = opaque {
         self.wasm_instancetype_delete();
     }
 
-    pub fn exports(self: *InstanceType) *ExportTypeVec {
+    pub fn exports(self: *InstanceType) ExportTypeVec {
         var export_vec: ExportTypeVec = undefined;
         self.wasm_instancetype_exports(&export_vec);
-        return &export_vec;
+        return export_vec;
     }
 
     extern fn wasm_instancetype_delete(*InstanceType) void;
@@ -99,7 +99,7 @@ pub const ByteVec = extern struct {
 
 pub const ExternVec = extern struct {
     size: usize,
-    data: [*]*Extern,
+    data: [*]?*Extern,
 
     pub fn empty() ExternVec {
         return .{ .size = 0, .data = undefined };
