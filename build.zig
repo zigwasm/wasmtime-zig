@@ -33,7 +33,15 @@ pub fn build(b: *Builder) !void {
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&main_tests.step);
 
-    const simple_exe = b.addExecutable("simple", "example/simple.zig");
+    const example = b.option([]const u8, "example", "The example to run from the /example folder");
+    const example_path = blk: {
+        const ex = example orelse "simple";
+
+        const path = try std.fs.path.join(b.allocator, &[_][]const u8{ "example", ex });
+        break :blk try std.mem.concat(b.allocator, u8, &[_][]const u8{ path, ".zig" });
+    };
+
+    const simple_exe = b.addExecutable(example orelse "simple", example_path);
     simple_exe.setBuildMode(mode);
     simple_exe.addPackagePath("wasmtime", "src/main.zig");
     simple_exe.linkLibC();
@@ -41,6 +49,6 @@ pub fn build(b: *Builder) !void {
     simple_exe.step.dependOn(b.getInstallStep());
 
     const run_simple_cmd = simple_exe.run();
-    const run_simple_step = b.step("example-simple", "Run the simple example app");
+    const run_simple_step = b.step("run", "Runs an example. If no -Dexample arg is provided, the simple example will be ran");
     run_simple_step.dependOn(&run_simple_cmd.step);
 }

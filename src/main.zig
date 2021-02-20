@@ -1,11 +1,14 @@
 const std = @import("std");
 const testing = std.testing;
+const meta = std.meta;
+const trait = std.meta.trait;
 const log = std.log.scoped(.wasmtime_zig);
 
 pub const c = @import("c.zig");
 
 var CALLBACK: usize = undefined;
 
+// @TODO: Split these up into own error sets
 pub const Error = error{
     /// Failed to initialize an `Engine` (i.e. invalid config)
     EngineInit,
@@ -18,6 +21,15 @@ pub const Error = error{
     FuncInit,
     /// Failed to initialize a new `Instance`
     InstanceInit,
+    /// When the user provided a different ResultType to `Func.call`
+    /// than what is defined by the wasm binary
+    InvalidResultType,
+    /// The given argument count to `Func.call` mismatches that
+    /// of the func argument count of the wasm binary
+    InvalidParamCount,
+    /// The wasm function number of results mismatch that of the given
+    /// ResultType to `Func.Call`. Note that `void` equals to 0 result types.
+    InvalidResultCount,
 };
 
 pub const Engine = opaque {
@@ -78,10 +90,11 @@ pub const Module = opaque {
             ptr.* = wat[i];
             ptr += 1;
         }
+
         var wasm_bytes: c.ByteVec = undefined;
         const err = c.wasmtime_wat2wasm(&wat_bytes, &wasm_bytes);
         errdefer err.?.deinit();
-        defer wasm_bytes.deinit();
+        defer if (err == null) wasm_bytes.deinit();
 
         if (err) |e| {
             var msg = e.getMessage();
@@ -169,15 +182,36 @@ pub const Func = opaque {
     }
 
     /// Tries to call the wasm function
-    pub fn call(self: *Func) !void {
-        var trap: ?*c.Trap = null;
-        const err = wasmtime_func_call(self, null, 0, null, 0, &trap);
-        errdefer {
-            if (err) |e| e.deinit();
-            if (trap) |t| t.deinit();
+    /// expects `args` to be tuple of arguments
+    pub fn call(self: *Func, comptime ResultType: type, args: anytype) !ResultType {
+        if (!comptime trait.isTuple(@TypeOf(args)))
+            @compileError("Expected 'args' to be a tuple, but found type '" ++ @typeName(@TypeOf(args)) ++ "'");
+
+        const args_len = args.len;
+        comptime var wasm_args: [args_len]c.Value = undefined;
+        inline for (wasm_args) |*arg, i| {
+            arg.* = switch (@TypeOf(args[i])) {
+                i32, u32 => .{ .kind = .i32, .of = .{ .i32 = @intCast(i32, args[i]) } },
+                i64, u64 => .{ .kind = .i64, .of = .{ .i64 = @intCast(i64, args[i]) } },
+                f32 => .{ .kind = .f32, .of = .{ .f32 = args[i] } },
+                f64 => .{ .kind = .f64, .of = .{ .f64 = args[i] } },
+                *Func => .{ .kind = .funcref, .of = .{ .ref = args[i] } },
+                *c.Extern => .{ .kind = .anyref, .of = .{ .ref = args[i] } },
+                else => |ty| @compileError("Unsupported argument type '" ++ @typeName(ty) + "'"),
+            };
         }
+        const result_len: usize = if (ResultType == void) 0 else 1;
+        const final_args: []const c.Value = &wasm_args;
+
+        if (result_len != self.wasm_func_result_arity()) return Error.InvalidResultCount;
+        if (args_len != self.wasm_func_param_arity()) return Error.InvalidParamCount;
+
+        var trap: ?*c.Trap = null;
+        var result_ty: c.Value = undefined;
+        const err = wasmtime_func_call(self, final_args.ptr, args_len, @ptrCast([*]*c.Value, &result_ty), result_len, &trap);
 
         if (err) |e| {
+            defer e.deinit();
             var msg = e.getMessage();
             defer msg.deinit();
 
@@ -185,33 +219,75 @@ pub const Func = opaque {
             return Error.InstanceInit;
         }
         if (trap) |t| {
+            t.deinit();
             // TODO handle trap message
             log.err("code unexpectedly trapped", .{});
             return Error.InstanceInit;
         }
+
+        if (ResultType == void) return;
+
+        if (!matchesKind(ResultType, result_ty.kind)) return Error.InvalidResultType;
+
+        return switch (ResultType) {
+            i32, u32 => @intCast(ResultType, result_ty.of.i32),
+            i64, u64 => @intCast(ResultType, result_ty.of.i64),
+            f32 => result_ty.of.f32,
+            f64 => result_ty.of.f64,
+            *Func => @ptrCast(?*Func, result_ty.of.ref).?,
+            *c.Extern => @ptrCast(?*c.Extern, result_ty.of.ref).?,
+            else => |ty| @compileError("Unsupported result type '" ++ @typeName(ty) ++ "'"),
+        };
+    }
+
+    /// Returns tue if the given `kind` of `c.Valkind` can coerce to type `T`
+    fn matchesKind(comptime T: type, kind: c.Valkind) bool {
+        return switch (T) {
+            i32, u32 => kind == .i32,
+            i64, u64 => kind == .i64,
+            f32 => kind == .f32,
+            f64 => kind == .f64,
+            else => switch (@typeInfo(T)) {
+                .Pointer => |info| (kind == .funcref and info.child == Func) or
+                    (kind == .anyref and info.child == c.Extern),
+                else => false,
+            },
+        };
     }
 
     extern fn wasm_func_new(*Store, functype: ?*c_void, callback: c.Callback) ?*Func;
     extern fn wasm_func_as_extern(*Func) ?*c.Extern;
     extern fn wasm_func_copy(*Func) ?*Func;
     extern fn wasmtime_func_call(
-        *Func,
-        args: ?*const c.Valtype,
+        ?*Func,
+        args: [*]const c.Value,
         args_size: usize,
-        results: ?*c.Valtype,
+        results: [*]*c.Value,
         results_size: usize,
         trap: *?*c.Trap,
     ) ?*c.WasmError;
+    extern fn wasm_func_result_arity(*Func) usize;
+    extern fn wasm_func_param_arity(*Func) usize;
 };
 
 pub const Instance = opaque {
-    // TODO accepts a list of imports
-    pub fn init(store: *Store, module: *Module, import: *Func) !*Instance {
+    /// Initializes a new `Instance` using the given `store` and `mode`.
+    /// The given slice defined in `import` must match what was initialized
+    /// using the same `Store` as given.
+    pub fn init(store: *Store, module: *Module, import: []const *Func) !*Instance {
         var trap: ?*c.Trap = null;
         var instance: ?*Instance = null;
-        const imports = [_]?*c.Extern{import.asExtern()};
 
-        const err = wasmtime_instance_new(store, module, &imports, 1, &instance, &trap);
+        var imports = c.ExternVec.initWithCapacity(import.len);
+        defer imports.deinit();
+
+        var ptr = imports.data;
+        for (import) |func| {
+            ptr.* = func.asExtern();
+            ptr += 1;
+        }
+
+        const err = wasmtime_instance_new(store, module, imports.data, import.len, &instance, &trap);
         errdefer {
             if (err) |e| e.deinit();
             if (trap) |t| t.deinit();
