@@ -53,7 +53,7 @@ pub fn main() !void {
     var func = try wasmtime.Func.init(store, hello);
     std.debug.print("Func callback prepared...\n", .{});
 
-    var instance = try wasmtime.Instance.init(store, module, &.{func});
+    var instance = try wasmtime.Instance.init(store, module, &[_]*wasmtime.Func{func});
     std.debug.print("Instance initialized...\n", .{});
 
     if (instance.getExportFunc("run")) |f| {
