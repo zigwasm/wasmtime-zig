@@ -45,7 +45,7 @@ pub fn main() !void {
     defer module.deinit();
     std.debug.print("Wasm module compiled...\n", .{});
 
-    var instance = try wasmtime.Instance.init(store, module, &.{});
+    var instance = try wasmtime.Instance.init(store, module, &[_]*wasmtime.Func{});
     std.debug.print("Instance initialized...\n", .{});
 
     if (instance.getExportFunc("gcd")) |f| {
