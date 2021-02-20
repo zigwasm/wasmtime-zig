@@ -93,10 +93,10 @@ pub const Module = opaque {
 
         var wasm_bytes: c.ByteVec = undefined;
         const err = c.wasmtime_wat2wasm(&wat_bytes, &wasm_bytes);
-        errdefer err.?.deinit();
         defer if (err == null) wasm_bytes.deinit();
 
         if (err) |e| {
+            defer e.deinit();
             var msg = e.getMessage();
             defer msg.deinit();
 
@@ -110,9 +110,9 @@ pub const Module = opaque {
     fn init(engine: *Engine, wasm_bytes: *c.ByteVec) !*Module {
         var module: ?*Module = undefined;
         const err = wasmtime_module_new(engine, wasm_bytes, &module);
-        errdefer err.?.deinit();
 
         if (err) |e| {
+            defer e.deinit();
             var msg = e.getMessage();
             defer msg.deinit();
 
@@ -247,11 +247,9 @@ pub const Func = opaque {
             i64, u64 => kind == .i64,
             f32 => kind == .f32,
             f64 => kind == .f64,
-            else => switch (@typeInfo(T)) {
-                .Pointer => |info| (kind == .funcref and info.child == Func) or
-                    (kind == .anyref and info.child == c.Extern),
-                else => false,
-            },
+            *Func => kind == .funcref,
+            *c.Extern => kind == .ref,
+            else => false,
         };
     }
 
@@ -288,12 +286,9 @@ pub const Instance = opaque {
         }
 
         const err = wasmtime_instance_new(store, module, imports.data, import.len, &instance, &trap);
-        errdefer {
-            if (err) |e| e.deinit();
-            if (trap) |t| t.deinit();
-        }
 
         if (err) |e| {
+            defer e.deinit();
             var msg = e.getMessage();
             defer msg.deinit();
 
@@ -301,6 +296,7 @@ pub const Instance = opaque {
             return Error.InstanceInit;
         }
         if (trap) |t| {
+            defer t.deinit();
             // TODO handle trap message
             log.err("code unexpectedly trapped", .{});
             return Error.InstanceInit;

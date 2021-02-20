@@ -162,7 +162,7 @@ pub const Valtype = opaque {
 
 pub const ValtypeVec = extern struct {
     size: usize,
-    data: [*]?*Value,
+    data: [*]?*Valtype,
 
     pub fn empty() ValtypeVec {
         return .{ .size = 0, .data = undefined };

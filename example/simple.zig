@@ -40,26 +40,26 @@ pub fn main() !void {
 
     var engine = try wasmtime.Engine.init();
     defer engine.deinit();
-    std.debug.warn("Engine initialized...\n", .{});
+    std.debug.print("Engine initialized...\n", .{});
 
     var store = try wasmtime.Store.init(engine);
     defer store.deinit();
-    std.debug.warn("Store initialized...\n", .{});
+    std.debug.print("Store initialized...\n", .{});
 
     var module = try wasmtime.Module.initFromWat(engine, wasm);
     defer module.deinit();
-    std.debug.warn("Wasm module compiled...\n", .{});
+    std.debug.print("Wasm module compiled...\n", .{});
 
     var func = try wasmtime.Func.init(store, hello);
-    std.debug.warn("Func callback prepared...\n", .{});
+    std.debug.print("Func callback prepared...\n", .{});
 
     var instance = try wasmtime.Instance.init(store, module, &.{func});
-    std.debug.warn("Instance initialized...\n", .{});
+    std.debug.print("Instance initialized...\n", .{});
 
     if (instance.getExportFunc("run")) |f| {
-        std.debug.warn("Calling export...\n", .{});
+        std.debug.print("Calling export...\n", .{});
         try f.call(void, .{});
     } else {
-        std.debug.warn("Export not found...\n", .{});
+        std.debug.print("Export not found...\n", .{});
     }
 }
