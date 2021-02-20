@@ -109,6 +109,12 @@ pub const ExternVec = extern struct {
         wasm_extern_vec_delete(self);
     }
 
+    pub fn initWithCapacity(size: usize) ExternVec {
+        var externs: ExternVec = undefined;
+        wasm_extern_vec_new_uninitialized(&externs, size);
+        return externs;
+    }
+
     extern fn wasm_extern_vec_new_empty(ptr: *ExternVec) void;
     extern fn wasm_extern_vec_new_uninitialized(ptr: *ExternVec, size: usize) void;
     extern fn wasm_extern_vec_delete(ptr: *ExternVec) void;
@@ -123,20 +129,40 @@ pub const Valkind = extern enum(u8) {
     funcref = 129,
 };
 
-pub const Valtype = extern struct {
+pub const Value = extern struct {
     kind: Valkind,
     of: extern union {
-        int32: i32,
-        int64: i64,
-        float32: f32,
-        float64: f64,
-        ref: *c_void,
+        i32: i32,
+        i64: i64,
+        f32: f32,
+        f64: f64,
+        ref: ?*c_void,
     },
+};
+
+pub const Valtype = opaque {
+    /// Initializes a new `Valtype` based on the given `Valkind`
+    pub fn init(kind: Valkind) *Valtype {
+        return wasm_valtype_new(@enumToInt(kind));
+    }
+
+    pub fn deinit(self: *Valtype) void {
+        wasm_valtype_delete(self);
+    }
+
+    /// Returns the `Valkind` of the given `Valtype`
+    pub fn kind(self: *Valtype) Valkind {
+        return @intToEnum(Valkind, wasm_valtype_kind(self));
+    }
+
+    extern fn wasm_valtype_new(kind: u8) *Valtype;
+    extern fn wasm_valtype_delete(*Valkind) void;
+    extern fn wasm_valtype_kind(*Valkind) u8;
 };
 
 pub const ValtypeVec = extern struct {
     size: usize,
-    data: [*]?*Valtype,
+    data: [*]?*Value,
 
     pub fn empty() ValtypeVec {
         return .{ .size = 0, .data = undefined };

@@ -5,11 +5,6 @@ const fs = std.fs;
 const ga = std.heap.c_allocator;
 const Allocator = std.mem.Allocator;
 
-fn hello() void {
-    std.debug.print("Calling back...\n", .{});
-    std.debug.print("> Hello World!\n", .{});
-}
-
 fn readToEnd(file: fs.File, alloc: *Allocator) ![]u8 {
     const ALLOC_SIZE: comptime usize = 1000;
 
@@ -33,33 +28,31 @@ fn readToEnd(file: fs.File, alloc: *Allocator) ![]u8 {
 }
 
 pub fn main() !void {
-    const wasm_path = if (builtin.os.tag == .windows) "example\\simple.wat" else "example/simple.wat";
+    const wasm_path = if (builtin.os.tag == .windows) "example\\gcd.wat" else "example/gcd.wat";
     const wasm_file = try fs.cwd().openFile(wasm_path, .{});
     const wasm = try readToEnd(wasm_file, ga);
     defer ga.free(wasm);
 
     var engine = try wasmtime.Engine.init();
     defer engine.deinit();
-    std.debug.warn("Engine initialized...\n", .{});
+    std.debug.print("Engine initialized...\n", .{});
 
     var store = try wasmtime.Store.init(engine);
     defer store.deinit();
-    std.debug.warn("Store initialized...\n", .{});
+    std.debug.print("Store initialized...\n", .{});
 
     var module = try wasmtime.Module.initFromWat(engine, wasm);
     defer module.deinit();
-    std.debug.warn("Wasm module compiled...\n", .{});
+    std.debug.print("Wasm module compiled...\n", .{});
 
-    var func = try wasmtime.Func.init(store, hello);
-    std.debug.warn("Func callback prepared...\n", .{});
+    var instance = try wasmtime.Instance.init(store, module, &.{});
+    std.debug.print("Instance initialized...\n", .{});
 
-    var instance = try wasmtime.Instance.init(store, module, &.{func});
-    std.debug.warn("Instance initialized...\n", .{});
-
-    if (instance.getExportFunc("run")) |f| {
-        std.debug.warn("Calling export...\n", .{});
-        try f.call(void, .{});
+    if (instance.getExportFunc("gcd")) |f| {
+        std.debug.print("Calling export...\n", .{});
+        const result = try f.call(i32, .{ @as(i32, 6), @as(i32, 27) });
+        std.debug.print("Result: {d}\n", .{result});
     } else {
-        std.debug.warn("Export not found...\n", .{});
+        std.debug.print("Export not found...\n", .{});
     }
 }
