@@ -14,7 +14,7 @@ but expected, and things might just not work as expected yet.
 ## Building
 
 This library consumes the C API of the Wasmtime project which you can download with every release of
-Wasmtime. It relies on version `v0.22.0` of Wasmtime and you need it to build tests and examples.
+Wasmtime. It relies on version `v0.24.0` of Wasmtime and you need it to build tests and examples.
 You can download the library from [here].
 
 After you unpack it, if you installed the lib in path that is not your system search path for lld,
@@ -24,7 +24,7 @@ you can add the installed path to the build command using the following flag
 zig build -Dlibrary-search-path=<path-to-libwasmtime>
 ```
 
-[here]: https://github.com/bytecodealliance/wasmtime/releases/tag/v0.22.0
+[here]: https://github.com/bytecodealliance/wasmtime/releases/tag/v0.24.0
 
 ## Running examples
 

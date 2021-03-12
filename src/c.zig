@@ -169,6 +169,24 @@ pub const ValtypeVec = extern struct {
     }
 };
 
+pub const ValVec = extern struct {
+    size: usize,
+    data: [*]Value,
+
+    pub fn initWithCapacity(size: usize) ValVec {
+        var bytes: ValVec = undefined;
+        wasm_val_vec_new_uninitialized(&bytes, size);
+        return bytes;
+    }
+
+    pub fn deinit(self: *ValVec) void {
+        self.wasm_val_vec_delete();
+    }
+
+    extern fn wasm_val_vec_new_uninitialized(*ValVec, usize) void;
+    extern fn wasm_val_vec_delete(*ValVec) void;
+};
+
 // Func
 pub extern fn wasm_functype_new(args: *ValtypeVec, results: *ValtypeVec) ?*c_void;
 pub extern fn wasm_functype_delete(functype: *c_void) void;
