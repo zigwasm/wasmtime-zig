@@ -200,15 +200,21 @@ pub const Func = opaque {
                 else => |ty| @compileError("Unsupported argument type '" ++ @typeName(ty) + "'"),
             };
         }
-        const result_len: usize = if (ResultType == void) 0 else 1;
-        const final_args: []const c.Value = &wasm_args;
 
+        // TODO multiple return values
+        const result_len: usize = if (ResultType == void) 0 else 1;
         if (result_len != self.wasm_func_result_arity()) return Error.InvalidResultCount;
         if (args_len != self.wasm_func_param_arity()) return Error.InvalidParamCount;
 
+        const final_args = c.ValVec{
+            .size = args_len,
+            .data = if (args_len == 0) undefined else @ptrCast([*]c.Value, &wasm_args),
+        };
+
         var trap: ?*c.Trap = null;
-        var result_ty: c.Value = undefined;
-        const err = wasmtime_func_call(self, final_args.ptr, args_len, @ptrCast([*]*c.Value, &result_ty), result_len, &trap);
+        var result_list = c.ValVec.initWithCapacity(result_len);
+        defer result_list.deinit();
+        const err = wasmtime_func_call(self, &final_args, &result_list, &trap);
 
         if (err) |e| {
             defer e.deinit();
@@ -227,6 +233,8 @@ pub const Func = opaque {
 
         if (ResultType == void) return;
 
+        // TODO: Handle multiple returns
+        const result_ty = result_list.data[0];
         if (!matchesKind(ResultType, result_ty.kind)) return Error.InvalidResultType;
 
         return switch (ResultType) {
@@ -258,10 +266,8 @@ pub const Func = opaque {
     extern fn wasm_func_copy(*Func) ?*Func;
     extern fn wasmtime_func_call(
         ?*Func,
-        args: [*]const c.Value,
-        args_size: usize,
-        results: [*]*c.Value,
-        results_size: usize,
+        args: *const c.ValVec,
+        results: *c.ValVec,
         trap: *?*c.Trap,
     ) ?*c.WasmError;
     extern fn wasm_func_result_arity(*Func) usize;
@@ -285,7 +291,7 @@ pub const Instance = opaque {
             ptr += 1;
         }
 
-        const err = wasmtime_instance_new(store, module, imports.data, import.len, &instance, &trap);
+        const err = wasmtime_instance_new(store, module, &imports, &instance, &trap);
 
         if (err) |e| {
             defer e.deinit();
@@ -344,8 +350,7 @@ pub const Instance = opaque {
     extern fn wasmtime_instance_new(
         store: *Store,
         module: *const Module,
-        imports: [*]const ?*const c.Extern,
-        size: usize,
+        imports: *const c.ExternVec,
         instance: *?*Instance,
         trap: *?*c.Trap,
     ) ?*c.WasmError;
