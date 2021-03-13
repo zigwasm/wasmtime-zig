@@ -1,3 +1,8 @@
+const Store = @import("main.zig").Store;
+const Module = @import("main.zig").Module;
+const Func = @import("main.zig").Func;
+const Instance = @import("main.zig").Instance;
+
 pub const WasmError = opaque {
     /// Gets the error message
     pub fn getMessage(self: *WasmError) ByteVec {
@@ -25,11 +30,11 @@ pub const Trap = opaque {
 
 pub const Extern = opaque {
     /// Returns the `Extern` as a function
-    pub fn asFunc(self: *Extern) ?*c_void {
+    pub fn asFunc(self: *Extern) ?*Func {
         return wasm_extern_as_func(self);
     }
 
-    extern fn wasm_extern_as_func(external: *c_void) ?*c_void;
+    extern fn wasm_extern_as_func(external: *c_void) ?*Func;
 };
 
 pub const ExportType = opaque {
@@ -193,3 +198,23 @@ pub extern fn wasm_functype_delete(functype: *c_void) void;
 
 // Helpers
 pub extern fn wasmtime_wat2wasm(wat: *ByteVec, wasm: *ByteVec) ?*WasmError;
+
+pub const InterruptHandle = opaque {
+    /// Creates a new interrupt handle.
+    /// Must be freed by calling `deinit()`
+    pub fn init(store: *Store) !*InterruptHandle {
+        return wasmtime_interrupt_handle_new(store) orelse error.InterruptsNotEnabled;
+    }
+    /// Invokes an interrupt in the current wasm module
+    pub fn interrupt(self: *InterruptHandle) void {
+        wasmtime_interrupt_handle_interrupt(self);
+    }
+
+    pub fn deinit(self: *InterruptHandle) void {
+        wasmtime_interrupt_handle_delete(self);
+    }
+
+    extern fn wasmtime_interrupt_handle_interrupt(?*InterruptHandle) void;
+    extern fn wasmtime_interrupt_handle_delete(?*InterruptHandle) void;
+    extern fn wasmtime_interrupt_handle_new(?*Store) ?*InterruptHandle;
+};
