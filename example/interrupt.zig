@@ -5,19 +5,31 @@ const fs = std.fs;
 const ga = std.heap.c_allocator;
 const Allocator = std.mem.Allocator;
 
+fn interrupt(handle: *wasmtime.c.InterruptHandle) void {
+    // sleep for 2 seconds
+    std.time.sleep(std.time.ns_per_s * 2);
+    std.debug.print("Sending interrupt...\n", .{});
+    handle.interrupt();
+}
+
 pub fn main() !void {
-    const wasm_path = if (builtin.os.tag == .windows) "example\\gcd.wat" else "example/gcd.wat";
+    const wasm_path = if (builtin.os.tag == .windows) "example\\interrupt.wat" else "example/interrupt.wat";
     const wasm_file = try fs.cwd().openFile(wasm_path, .{});
     const wasm = try wasm_file.readToEndAlloc(ga, std.math.maxInt(u64));
     defer ga.free(wasm);
 
-    var engine = try wasmtime.Engine.init();
+    const config = try wasmtime.Config.init();
+    config.setInterruptable(true);
+    var engine = try wasmtime.Engine.withConfig(config);
     defer engine.deinit();
     std.debug.print("Engine initialized...\n", .{});
 
     var store = try wasmtime.Store.init(engine);
-    defer store.deinit();
     std.debug.print("Store initialized...\n", .{});
+
+    var handle = try wasmtime.c.InterruptHandle.init(store);
+    defer handle.deinit();
+    std.debug.print("Interrupt handle created...\n", .{});
 
     var module = try wasmtime.Module.initFromWat(engine, wasm);
     defer module.deinit();
@@ -27,11 +39,17 @@ pub fn main() !void {
     defer instance.deinit();
     std.debug.print("Instance initialized...\n", .{});
 
-    if (instance.getExportFunc("gcd")) |f| {
+    const thread = try std.Thread.spawn(interrupt, handle);
+
+    if (instance.getExportFunc("run")) |f| {
         std.debug.print("Calling export...\n", .{});
-        const result = try f.call(i32, .{ @as(i32, 6), @as(i32, 27) });
-        std.debug.print("Result: {d}\n", .{result});
+        f.call(void, .{}) catch |err| switch (err) {
+            error.Trap => std.debug.print("Trap was hit!\n", .{}),
+            else => return err,
+        };
     } else {
         std.debug.print("Export not found...\n", .{});
     }
+
+    thread.wait();
 }

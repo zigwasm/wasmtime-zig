@@ -10,6 +10,8 @@ var CALLBACK: usize = undefined;
 
 // @TODO: Split these up into own error sets
 pub const Error = error{
+    /// Failed to initialize a `Config`
+    ConfigInit,
     /// Failed to initialize an `Engine` (i.e. invalid config)
     EngineInit,
     /// Failed to initialize a `Store`
@@ -32,10 +34,27 @@ pub const Error = error{
     InvalidResultCount,
 };
 
+pub const Config = opaque {
+    pub fn init() !*Config {
+        return wasm_config_new() orelse Error.ConfigInit;
+    }
+
+    pub fn setInterruptable(self: *Config, opt: bool) void {
+        wasmtime_config_interruptable_set(self, opt);
+    }
+
+    extern fn wasm_config_new() ?*Config;
+    extern fn wasmtime_config_interruptable_set(*Config, bool) void;
+};
+
 pub const Engine = opaque {
     /// Initializes a new `Engine`
     pub fn init() !*Engine {
         return wasm_engine_new() orelse Error.EngineInit;
+    }
+
+    pub fn withConfig(config: *Config) !*Engine {
+        return wasm_engine_new_with_config(config) orelse Error.EngineInit;
     }
 
     /// Frees the resources of the `Engine`
@@ -44,6 +63,7 @@ pub const Engine = opaque {
     }
 
     extern fn wasm_engine_new() ?*Engine;
+    extern fn wasm_engine_new_with_config(*Config) ?*Engine;
     extern fn wasm_engine_delete(*Engine) void;
 };
 
@@ -138,6 +158,13 @@ fn cb(params: ?*const c.Valtype, results: ?*c.Valtype) callconv(.C) ?*c.Trap {
 }
 
 pub const Func = opaque {
+    pub const CallError = error{
+        InnerError,
+        InvalidParamCount,
+        InvalidResultCount,
+        InvalidResultType,
+        Trap,
+    };
     pub fn init(store: *Store, callback: anytype) !*Func {
         const cb_meta = @typeInfo(@TypeOf(callback));
         switch (cb_meta) {
@@ -183,7 +210,7 @@ pub const Func = opaque {
 
     /// Tries to call the wasm function
     /// expects `args` to be tuple of arguments
-    pub fn call(self: *Func, comptime ResultType: type, args: anytype) !ResultType {
+    pub fn call(self: *Func, comptime ResultType: type, args: anytype) CallError!ResultType {
         if (!comptime trait.isTuple(@TypeOf(args)))
             @compileError("Expected 'args' to be a tuple, but found type '" ++ @typeName(@TypeOf(args)) ++ "'");
 
@@ -203,8 +230,8 @@ pub const Func = opaque {
 
         // TODO multiple return values
         const result_len: usize = if (ResultType == void) 0 else 1;
-        if (result_len != self.wasm_func_result_arity()) return Error.InvalidResultCount;
-        if (args_len != self.wasm_func_param_arity()) return Error.InvalidParamCount;
+        if (result_len != self.wasm_func_result_arity()) return CallError.InvalidResultCount;
+        if (args_len != self.wasm_func_param_arity()) return CallError.InvalidParamCount;
 
         const final_args = c.ValVec{
             .size = args_len,
@@ -222,20 +249,20 @@ pub const Func = opaque {
             defer msg.deinit();
 
             log.err("Unable to call function: '{s}'", .{msg.toSlice()});
-            return Error.InstanceInit;
+            return CallError.InnerError;
         }
         if (trap) |t| {
             t.deinit();
             // TODO handle trap message
             log.err("code unexpectedly trapped", .{});
-            return Error.InstanceInit;
+            return CallError.Trap;
         }
 
         if (ResultType == void) return;
 
         // TODO: Handle multiple returns
         const result_ty = result_list.data[0];
-        if (!matchesKind(ResultType, result_ty.kind)) return Error.InvalidResultType;
+        if (!matchesKind(ResultType, result_ty.kind)) return CallError.InvalidResultType;
 
         return switch (ResultType) {
             i32, u32 => @intCast(ResultType, result_ty.of.i32),
@@ -354,7 +381,7 @@ pub const Instance = opaque {
         instance: *?*Instance,
         trap: *?*c.Trap,
     ) ?*c.WasmError;
-    extern fn wasmtime_instance_delete(*Instance) void;
+    extern fn wasm_instance_delete(*Instance) void;
     extern fn wasm_instance_exports(*Instance, *c.ExternVec) void;
     extern fn wasm_instance_type(*const Instance) ?*c.InstanceType;
 };

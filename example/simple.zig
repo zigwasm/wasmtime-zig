@@ -10,32 +10,10 @@ fn hello() void {
     std.debug.print("> Hello World!\n", .{});
 }
 
-fn readToEnd(file: fs.File, alloc: *Allocator) ![]u8 {
-    const ALLOC_SIZE: comptime usize = 1000;
-
-    var buffer = try alloc.alloc(u8, ALLOC_SIZE);
-    defer alloc.free(buffer);
-
-    var total_read: usize = 0;
-    while (true) {
-        const nread = try file.readAll(buffer[total_read..]);
-        total_read += nread;
-
-        if (total_read < buffer.len) break;
-
-        buffer = try alloc.realloc(buffer, buffer.len + ALLOC_SIZE);
-    }
-
-    var contents = try alloc.alloc(u8, total_read);
-    std.mem.copy(u8, contents, buffer[0..total_read]);
-
-    return contents;
-}
-
 pub fn main() !void {
     const wasm_path = if (builtin.os.tag == .windows) "example\\simple.wat" else "example/simple.wat";
     const wasm_file = try fs.cwd().openFile(wasm_path, .{});
-    const wasm = try readToEnd(wasm_file, ga);
+    const wasm = try wasm_file.readToEndAlloc(ga, std.math.maxInt(u64));
     defer ga.free(wasm);
 
     var engine = try wasmtime.Engine.init();
@@ -54,6 +32,7 @@ pub fn main() !void {
     std.debug.print("Func callback prepared...\n", .{});
 
     var instance = try wasmtime.Instance.init(store, module, &[_]*wasmtime.Func{func});
+    defer instance.deinit();
     std.debug.print("Instance initialized...\n", .{});
 
     if (instance.getExportFunc("run")) |f| {
