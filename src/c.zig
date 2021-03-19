@@ -218,3 +218,113 @@ pub const InterruptHandle = opaque {
     extern fn wasmtime_interrupt_handle_delete(?*InterruptHandle) void;
     extern fn wasmtime_interrupt_handle_new(?*Store) ?*InterruptHandle;
 };
+
+pub const WasiConfig = opaque {
+    /// Options to inherit when inherriting configs
+    /// By default all is `true` as you often want to
+    /// inherit everything rather than something specifically.
+    const InheritOptions = struct {
+        argv: bool = true,
+        env: bool = true,
+        std_in: bool = true,
+        std_out: bool = true,
+        std_err: bool = true,
+    };
+
+    pub fn init() !*WasiConfig {
+        return wasi_config_new() orelse error.ConfigInit;
+    }
+
+    pub fn deinit(self: *WasiConfig) void {
+        wasi_config_delete(self);
+    }
+
+    /// Allows to inherit the native environment into the current config.
+    /// Inherits everything by default.
+    pub fn inherit(self: *WasiConfig, options: InheritOptions) void {
+        if (options.argv) self.inheritArgv();
+        if (options.env) self.inheritEnv();
+        if (options.std_in) self.inheritStdIn();
+        if (options.std_out) self.inheritStdOut();
+        if (options.std_err) self.inheritStdErr();
+    }
+
+    pub fn inheritArgv(self: *WasiConfig) void {
+        wasi_config_inherit_argv(self);
+    }
+
+    pub fn inheritEnv(self: *WasiConfig) void {
+        wasi_config_inherit_env(self);
+    }
+
+    pub fn inheritStdIn(self: *WasiConfig) void {
+        wasi_config_inherit_stdin(self);
+    }
+
+    pub fn inheritStdOut(self: *WasiConfig) void {
+        wasi_config_inherit_stdout(self);
+    }
+
+    pub fn inheritStdErr(self: *WasiConfig) void {
+        wasi_config_inherit_stderr(self);
+    }
+
+    extern fn wasi_config_new() ?*WasiConfig;
+    extern fn wasi_config_delete(?*WasiConfig) void;
+    extern fn wasi_config_inherit_argv(?*WasiConfig) void;
+    extern fn wasi_config_inherit_env(?*WasiConfig) void;
+    extern fn wasi_config_inherit_stdin(?*WasiConfig) void;
+    extern fn wasi_config_inherit_stdout(?*WasiConfig) void;
+    extern fn wasi_config_inherit_stderr(?*WasiConfig) void;
+};
+
+pub const WasiInstance = opaque {
+    pub fn init(store: *Store, name: [*:0]const u8, config: ?*WasiConfig, trap: *?*Trap) !*WasiInstance {
+        return wasi_instance_new(store, name, config, trap) orelse error.InstanceInit;
+    }
+
+    pub fn deinit(self: *WasiInstance) void {
+        was_instance_delete(self);
+    }
+
+    extern fn wasi_instance_new(?*Store, [*:0]const u8, ?*WasiConfig, *?*Trap) ?*WasiInstance;
+    extern fn was_instance_delete(?*WasiInstance) void;
+};
+
+pub const Linker = opaque {
+    pub fn init(store: *Store) !*Linker {
+        return wasmtime_linker_new(store) orelse error.LinkerInit;
+    }
+
+    pub fn deinit(self: *Linker) void {
+        wasmtime_linker_delete(self);
+    }
+
+    pub fn defineWasi(self: *Linker, wasi: *const WasiInstance) ?*WasmError {
+        return wasmtime_linker_define_wasi(self, wasi);
+    }
+
+    pub fn defineInstance(self: *Linker, name: *const ByteVec, instance: *const Instance) ?*WasmError {
+        wasmtime_linker_define_instance(self, name, instance);
+    }
+
+    pub fn instantiate(
+        self: *const Linker,
+        module: *const Module,
+        instance: *?*Instance,
+        trap: *?*Trap,
+    ) ?*WasmError {
+        return wasmtime_linker_instantiate(self, module, instance, trap);
+    }
+
+    extern fn wasmtime_linker_new(?*Store) ?*Linker;
+    extern fn wasmtime_linker_delete(?*Linker) void;
+    extern fn wasmtime_linker_define_wasi(?*Linker, ?*const WasiInstance) ?*WasmError;
+    extern fn wasmtime_linker_define_instance(?*Linker, ?*const ByteVec, ?*const Instance) ?*WasmError;
+    extern fn wasmtime_linker_instantiate(
+        linker: ?*const Linker,
+        module: ?*const Module,
+        instance: *?*Instance,
+        trap: *?*Trap,
+    ) ?*WasmError;
+};

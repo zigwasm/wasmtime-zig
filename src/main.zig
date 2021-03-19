@@ -35,8 +35,15 @@ pub const Error = error{
 };
 
 pub const Config = opaque {
-    pub fn init() !*Config {
-        return wasm_config_new() orelse Error.ConfigInit;
+    const Options = struct {
+        interruptable: bool = false,
+    };
+    pub fn init(options: Options) !*Config {
+        const config = wasm_config_new() orelse Error.ConfigInit;
+        if (options.interruptable) {
+            config.setInterruptable(true);
+        }
+        return config;
     }
 
     pub fn setInterruptable(self: *Config, opt: bool) void {
