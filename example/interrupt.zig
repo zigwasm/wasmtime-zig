@@ -18,8 +18,7 @@ pub fn main() !void {
     const wasm = try wasm_file.readToEndAlloc(ga, std.math.maxInt(u64));
     defer ga.free(wasm);
 
-    const config = try wasmtime.Config.init();
-    config.setInterruptable(true);
+    const config = try wasmtime.Config.init(.{ .interruptable = true });
     var engine = try wasmtime.Engine.withConfig(config);
     defer engine.deinit();
     std.debug.print("Engine initialized...\n", .{});
