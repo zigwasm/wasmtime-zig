@@ -39,7 +39,7 @@ pub const Config = opaque {
         interruptable: bool = false,
     };
     pub fn init(options: Options) !*Config {
-        const config = wasm_config_new() orelse Error.ConfigInit;
+        const config = wasm_config_new() orelse return Error.ConfigInit;
         if (options.interruptable) {
             config.setInterruptable(true);
         }

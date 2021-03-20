@@ -102,6 +102,15 @@ pub const ByteVec = extern struct {
     extern fn wasm_byte_vec_delete(ptr: *ByteVec) void;
 };
 
+pub const NameVec = extern struct {
+    size: usize,
+    data: [*]const u8,
+
+    pub fn fromSlice(slice: []const u8) NameVec {
+        return .{ .size = slice.len, .data = slice.ptr };
+    }
+};
+
 pub const ExternVec = extern struct {
     size: usize,
     data: [*]?*Extern,
@@ -284,11 +293,11 @@ pub const WasiInstance = opaque {
     }
 
     pub fn deinit(self: *WasiInstance) void {
-        was_instance_delete(self);
+        wasm_instance_delete(self);
     }
 
     extern fn wasi_instance_new(?*Store, [*:0]const u8, ?*WasiConfig, *?*Trap) ?*WasiInstance;
-    extern fn was_instance_delete(?*WasiInstance) void;
+    extern fn wasm_instance_delete(?*WasiInstance) void;
 };
 
 pub const Linker = opaque {
@@ -304,8 +313,8 @@ pub const Linker = opaque {
         return wasmtime_linker_define_wasi(self, wasi);
     }
 
-    pub fn defineInstance(self: *Linker, name: *const ByteVec, instance: *const Instance) ?*WasmError {
-        wasmtime_linker_define_instance(self, name, instance);
+    pub fn defineInstance(self: *Linker, name: *const NameVec, instance: *const Instance) ?*WasmError {
+        return wasmtime_linker_define_instance(self, name, instance);
     }
 
     pub fn instantiate(
@@ -320,7 +329,7 @@ pub const Linker = opaque {
     extern fn wasmtime_linker_new(?*Store) ?*Linker;
     extern fn wasmtime_linker_delete(?*Linker) void;
     extern fn wasmtime_linker_define_wasi(?*Linker, ?*const WasiInstance) ?*WasmError;
-    extern fn wasmtime_linker_define_instance(?*Linker, ?*const ByteVec, ?*const Instance) ?*WasmError;
+    extern fn wasmtime_linker_define_instance(?*Linker, ?*const NameVec, ?*const Instance) ?*WasmError;
     extern fn wasmtime_linker_instantiate(
         linker: ?*const Linker,
         module: ?*const Module,
