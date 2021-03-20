@@ -23,21 +23,13 @@ pub const Error = error{
     FuncInit,
     /// Failed to initialize a new `Instance`
     InstanceInit,
-    /// When the user provided a different ResultType to `Func.call`
-    /// than what is defined by the wasm binary
-    InvalidResultType,
-    /// The given argument count to `Func.call` mismatches that
-    /// of the func argument count of the wasm binary
-    InvalidParamCount,
-    /// The wasm function number of results mismatch that of the given
-    /// ResultType to `Func.Call`. Note that `void` equals to 0 result types.
-    InvalidResultCount,
 };
 
 pub const Config = opaque {
     const Options = struct {
         interruptable: bool = false,
     };
+
     pub fn init(options: Options) !*Config {
         const config = wasm_config_new() orelse return Error.ConfigInit;
         if (options.interruptable) {
@@ -166,10 +158,19 @@ fn cb(params: ?*const c.Valtype, results: ?*c.Valtype) callconv(.C) ?*c.Trap {
 
 pub const Func = opaque {
     pub const CallError = error{
+        /// Failed to call the function
+        /// and resulted into an error
         InnerError,
-        InvalidParamCount,
-        InvalidResultCount,
+        /// When the user provided a different ResultType to `Func.call`
+        /// than what is defined by the wasm binary
         InvalidResultType,
+        /// The given argument count to `Func.call` mismatches that
+        /// of the func argument count of the wasm binary
+        InvalidParamCount,
+        /// The wasm function number of results mismatch that of the given
+        /// ResultType to `Func.Call`. Note that `void` equals to 0 result types.
+        InvalidResultCount,
+        /// Function call resulted in an unexpected trap.
         Trap,
     };
     pub fn init(store: *Store, callback: anytype) !*Func {
@@ -205,7 +206,7 @@ pub const Func = opaque {
     ///
     /// Owned by `extern_func` and shouldn't be deinitialized
     pub fn fromExtern(extern_func: *c.Extern) ?*Func {
-        return @ptrCast(?*Func, extern_func.asFunc());
+        return extern_func.asFunc();
     }
 
     /// Creates a copy of the current `Func`
@@ -345,12 +346,21 @@ pub const Instance = opaque {
         return instance.?;
     }
 
-    /// Returns an export by its name if found
-    /// returns null if not found
+    /// Returns an export func by its name if found
+    /// Asserts the export is of type `Func`
     /// The returned `Func` is a copy and must be freed by the caller
     pub fn getExportFunc(self: *Instance, name: []const u8) ?*Func {
+        return if (self.getExport(name)) |exp| {
+            defer exp.deinit(); // free the copy
+            return exp.asFunc().copy();
+        } else null;
+    }
+
+    /// Returns an export by its name and `null` when not found
+    /// The `Extern` is copied and must be freed manually
+    pub fn getExport(self: *Instance, name: []const u8) ?*c.Extern {
         var externs: c.ExternVec = undefined;
-        self.wasm_instance_exports(&externs);
+        wasm_instance_exports(self, &externs);
         defer externs.deinit();
 
         const instance_type = self.getType();
@@ -365,20 +375,30 @@ pub const Instance = opaque {
             defer type_name.deinit();
 
             if (std.mem.eql(u8, name, type_name.toSlice())) {
-                const ext = externs.data[index] orelse return null;
-                break Func.fromExtern(ext).?.copy();
+                if (externs.data[index]) |ext| {
+                    break ext.copy();
+                }
             }
+        } else null;
+    }
+
+    /// Returns an exported `c.Memory` when found and `null` when not.
+    /// The result is copied and must be freed manually by calling `deinit()` on the result.
+    pub fn getExportMem(self: *Instance, name: []const u8) ?*c.Memory {
+        return if (self.getExport(name)) |exp| {
+            defer exp.deinit(); // free the copy
+            return exp.asMemory().copy();
         } else null;
     }
 
     /// Returns the `c.InstanceType` of the `Instance`
     pub fn getType(self: *Instance) *c.InstanceType {
-        return self.wasm_instance_type().?;
+        return wasm_instance_type(self).?;
     }
 
     /// Frees the `Instance`'s resources
     pub fn deinit(self: *Instance) void {
-        self.wasm_instance_delete();
+        wasm_instance_delete(self);
     }
 
     extern fn wasmtime_instance_new(
