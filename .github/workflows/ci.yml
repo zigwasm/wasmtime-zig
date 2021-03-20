@@ -64,4 +64,10 @@ jobs:
     - name: zig build run -Dexample=gcd
       run: |
         zig build run -Dexample=gcd -Dlibrary-search-path="."
+    - name: zig build run -Dexample=linking
+      run: |
+        zig build run -Dexample=linking -Dlibrary-search-path="."
+    - name: zig build run -Dexample=memory
+      run: |
+        zig build run -Dexample=memory -Dlibrary-search-path="."
 
