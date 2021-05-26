@@ -1,0 +1,18 @@
+pkgs:
+  wasmtime:
+    version: 0.0.0
+    root: src/main.zig
+    description: Zig embedding of Wasmtime
+    license: Apache-2.0
+    source_url: "https://github.com/kubkon/wasmtime-zig"
+    tags:
+      wasmtime
+      wasm
+      wasi
+deps:
+  wasm:
+    src:
+      github:
+        user: kubkon
+        repo: wasm-zig
+        ref: main

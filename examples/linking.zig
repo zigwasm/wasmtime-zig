@@ -6,8 +6,8 @@ const ga = std.heap.c_allocator;
 const Allocator = std.mem.Allocator;
 
 pub fn main() !void {
-    const wasm_path = if (builtin.os.tag == .windows) "example\\linking1.wat" else "example/linking1.wat";
-    const wasm_path2 = if (builtin.os.tag == .windows) "example\\linking2.wat" else "example/linking2.wat";
+    const wasm_path = if (builtin.os.tag == .windows) "examples\\linking1.wat" else "examples/linking1.wat";
+    const wasm_path2 = if (builtin.os.tag == .windows) "examples\\linking2.wat" else "examples/linking2.wat";
     const wasm_file = try fs.cwd().openFile(wasm_path, .{});
     defer wasm_file.close();
     const wasm_file2 = try fs.cwd().openFile(wasm_path2, .{});
@@ -32,11 +32,11 @@ pub fn main() !void {
     std.debug.print("Store initialized...\n", .{});
 
     // intantiate wasi
-    const config = try wasmtime.c.WasiConfig.init();
+    const config = try wasmtime.WasiConfig.init();
     config.inherit(.{});
 
-    var trap: ?*wasmtime.c.Trap = null;
-    const wasi = try wasmtime.c.WasiInstance.init(store, "wasi_snapshot_preview1", config, &trap);
+    var trap: ?*wasmtime.Trap = null;
+    const wasi = try wasmtime.WasiInstance.init(store, "wasi_snapshot_preview1", config, &trap);
     if (trap) |t| {
         std.debug.print("Unexpected trap during WasiInstance initialization\n", .{});
         t.deinit();
@@ -46,7 +46,7 @@ pub fn main() !void {
     std.debug.print("wasi instance initialized...\n", .{});
 
     // create our linker and then add our WASI instance to it.
-    const linker = try wasmtime.c.Linker.init(store);
+    const linker = try wasmtime.Linker.init(store);
     defer linker.deinit();
     if (linker.defineWasi(wasi)) |err| {
         var msg = err.getMessage();
@@ -56,7 +56,7 @@ pub fn main() !void {
     }
 
     // Instantiate `linking2` with our linker.
-    var linking2: ?*wasmtime.Instance = null;
+    var linking2: ?*wasmtime.wasm.Instance = null;
     const link_error2 = linker.instantiate(module2, &linking2, &trap);
     if (trap) |t| {
         std.debug.print("Unexpected trap during linker initialization\n", .{});
@@ -71,7 +71,7 @@ pub fn main() !void {
     }
 
     // Register our new `linking2` instance with the linker
-    const name = wasmtime.c.NameVec.fromSlice("linking2");
+    const name = wasmtime.NameVec.fromSlice("linking2");
     if (linker.defineInstance(&name, linking2.?)) |err| {
         var msg = err.getMessage();
         defer msg.deinit();
@@ -79,7 +79,7 @@ pub fn main() !void {
         return;
     }
 
-    var instance: ?*wasmtime.Instance = undefined;
+    var instance: ?*wasmtime.wasm.Instance = undefined;
     if (linker.instantiate(module, &instance, &trap)) |err| {
         var msg = err.getMessage();
         defer msg.deinit();

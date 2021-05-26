@@ -7,7 +7,7 @@ const Allocator = std.mem.Allocator;
 const assert = std.debug.assert;
 
 pub fn main() !void {
-    const wasm_path = if (builtin.os.tag == .windows) "example\\memory.wat" else "example/memory.wat";
+    const wasm_path = if (builtin.os.tag == .windows) "examples\\memory.wat" else "examples/memory.wat";
     const wasm_file = try fs.cwd().openFile(wasm_path, .{});
     const wasm = try wasm_file.readToEndAlloc(ga, std.math.maxInt(u64));
     defer ga.free(wasm);
@@ -24,7 +24,7 @@ pub fn main() !void {
     defer module.deinit();
     std.debug.print("Wasm module compiled...\n", .{});
 
-    var instance = try wasmtime.Instance.init(store, module, &[_]*wasmtime.Func{});
+    var instance = try wasmtime.Instance.init(store, module, &.{});
     defer instance.deinit();
     std.debug.print("Instance initialized...\n", .{});
 
@@ -74,10 +74,10 @@ pub fn main() !void {
     try memory.grow(0);
 
     // create stand-alone memory
-    const mem_type = try wasmtime.c.MemoryType.init(.{ .min = 5, .max = 5 });
+    const mem_type = try wasmtime.MemoryType.init(.{ .min = 5, .max = 5 });
     defer mem_type.deinit();
 
-    const mem = try wasmtime.c.Memory.init(store, mem_type);
+    const mem = try wasmtime.Memory.init(store, mem_type);
     defer mem.deinit();
 
     assert(mem.pages() == 5);
@@ -85,28 +85,28 @@ pub fn main() !void {
     try memory.grow(0);
 }
 
-fn assertCall(func: *wasmtime.Func, result: u32) void {
+fn assertCall(func: wasmtime.Func, result: u32) void {
     const res = func.call(@TypeOf(result), .{}) catch std.debug.panic("Unexpected error", .{});
     std.debug.assert(result == res);
 }
 
-fn assertCall1(func: *wasmtime.Func, comptime arg: u32, result: u32) void {
+fn assertCall1(func: wasmtime.Func, comptime arg: u32, result: u32) void {
     const res = func.call(@TypeOf(arg), .{arg}) catch std.debug.panic("Unexpected error", .{});
     std.debug.assert(result == res);
 }
 
-fn assertCall2(func: *wasmtime.Func, comptime arg: u32, comptime arg2: u32) void {
+fn assertCall2(func: wasmtime.Func, comptime arg: u32, comptime arg2: u32) void {
     const res = func.call(void, .{ arg, arg2 }) catch std.debug.panic("Unexpected error", .{});
     std.debug.assert({} == res);
 }
 
-fn assertTrap(func: *wasmtime.Func, comptime arg: u32) void {
+fn assertTrap(func: wasmtime.Func, comptime arg: u32) void {
     if (func.call(@TypeOf(arg), .{arg})) |_| {
         std.debug.panic("Expected Trap error, got result", .{});
     } else |err| std.debug.assert(err == error.Trap);
 }
 
-fn assertTrap1(func: *wasmtime.Func, comptime arg: u32, comptime arg2: u32) void {
+fn assertTrap1(func: wasmtime.Func, comptime arg: u32, comptime arg2: u32) void {
     if (func.call(void, .{ arg, arg2 })) |_| {
         std.debug.panic("Expected Trap error, got result", .{});
     } else |err| std.debug.assert(err == error.Trap);

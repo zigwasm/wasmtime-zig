@@ -1,0 +1,30 @@
+#!/bin/sh
+
+set -x
+set -e
+
+ZIG="zig-macos-x86_64-0.8.0-dev.2667+44de88498"
+WASMTIME_VERSION="v0.24.0"
+WASMTIME="wasmtime-$WASMTIME_VERSION-x86_64-macos-c-api"
+GYRO_VERSION="0.2.3"
+GYRO="gyro-$GYRO_VERSION-macos-x86_64"
+
+curl -L "https://ziglang.org/builds/$ZIG.tar.xz" -o "$ZIG.tar.xz"
+tar xf "$ZIG.tar.xz"
+export PATH="$(pwd)/$ZIG:$PATH"
+
+curl -L "https://github.com/bytecodealliance/wasmtime/releases/download/$WASMTIME_VERSION/$WASMTIME.tar.xz" -o "$WASMTIME.tar.xz"
+tar xf "$WASMTIME.tar.xz"
+
+curl -L "https://github.com/mattnite/gyro/releases/download/$GYRO_VERSION/$GYRO.tar.gz" -o "$GYRO.tar.gz"
+tar xf "$GYRO.tar.gz"
+export PATH="$(pwd)/$GYRO/bin:$PATH"
+
+gyro build
+gyro build test
+gyro build run -Dexample=simple --search-prefix "$(pwd)/$WASMTIME"
+gyro build run -Dexample=gcd --search-prefix "$(pwd)/$WASMTIME"
+gyro build run -Dexample=linking --search-prefix "$(pwd)/$WASMTIME"
+gyro build run -Dexample=memory --search-prefix "$(pwd)/$WASMTIME"
+gyro build run -Dexample=interrupt --search-prefix "$(pwd)/$WASMTIME"
+

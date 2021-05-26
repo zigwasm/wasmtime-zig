@@ -6,7 +6,7 @@ const ga = std.heap.c_allocator;
 const Allocator = std.mem.Allocator;
 
 pub fn main() !void {
-    const wasm_path = if (builtin.os.tag == .windows) "example\\gcd.wat" else "example/gcd.wat";
+    const wasm_path = if (builtin.os.tag == .windows) "examples\\gcd.wat" else "examples/gcd.wat";
     const wasm_file = try fs.cwd().openFile(wasm_path, .{});
     const wasm = try wasm_file.readToEndAlloc(ga, std.math.maxInt(u64));
     defer ga.free(wasm);
@@ -23,7 +23,7 @@ pub fn main() !void {
     defer module.deinit();
     std.debug.print("Wasm module compiled...\n", .{});
 
-    var instance = try wasmtime.Instance.init(store, module, &[_]*wasmtime.Func{});
+    var instance = try wasmtime.Instance.init(store, module, &.{});
     defer instance.deinit();
     std.debug.print("Instance initialized...\n", .{});
 
