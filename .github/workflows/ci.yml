@@ -24,50 +24,13 @@ jobs:
         git config --global core.autocrlf false
     - name: Checkout
       uses: actions/checkout@v1
-    - name: Install zig (ubuntu)
+    - name: Test linux
       if: matrix.os == 'ubuntu'
-      run: |
-        sudo snap install zig --classic --beta
-    - name: Install zig (macOS)
+      run: ./ci/linux_ci
+    - name: Test macos
       if: matrix.os == 'macos'
-      run: |
-        brew install zig
-    - name: Install zig (windows)
+      run: ./ci/macos_ci
+    - name: Test windows
+      shell: bash
       if: matrix.os == 'windows'
-      run: |
-        choco install zig
-    - name: Install libwasmtime (ubuntu)
-      if: matrix.os == 'ubuntu'
-      run: |
-        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.24.0/wasmtime-v0.24.0-x86_64-linux-c-api.tar.xz -o wasmtime.tar.xz
-        tar -C . --strip-components 2 --wildcards -xvf wasmtime.tar.xz */lib/libwasmtime.a
-    - name: Install libwasmtime (macOS)
-      if: matrix.os == 'macos'
-      run: |
-        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.24.0/wasmtime-v0.24.0-x86_64-macos-c-api.tar.xz -o wasmtime.tar.xz
-        tar -C . --strip-components 2 -xvf wasmtime.tar.xz */lib/libwasmtime.a
-    - name: Install libwasmtime (windows)
-      if: matrix.os == 'windows'
-      run: |
-        curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v0.24.0/wasmtime-v0.24.0-x86_64-windows-c-api.zip -o wasmtime.zip
-        7z e -i!"*/lib/wasmtime.dll.lib" wasmtime.zip
-        7z e -i!"*/lib/wasmtime.dll" wasmtime.zip
-    - name: zig build
-      run: |
-        zig build
-    - name: zig build test
-      run: |
-        zig build test -Dlibrary-search-path="."
-    - name: zig build run -Dexample=simple
-      run: |
-        zig build run -Dexample=simple -Dlibrary-search-path="."
-    - name: zig build run -Dexample=gcd
-      run: |
-        zig build run -Dexample=gcd -Dlibrary-search-path="."
-    - name: zig build run -Dexample=linking
-      run: |
-        zig build run -Dexample=linking -Dlibrary-search-path="."
-    - name: zig build run -Dexample=memory
-      run: |
-        zig build run -Dexample=memory -Dlibrary-search-path="."
-
+      run: ./ci/win_ci

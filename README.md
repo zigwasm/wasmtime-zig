@@ -13,6 +13,10 @@ but expected, and things might just not work as expected yet.
 
 ## Building
 
+To build this library, you will need Zig nightly 0.8.0, as well as [`gyro`] package manager.
+
+[`gyro`]: https://github.com/mattnite/gyro
+
 This library consumes the C API of the Wasmtime project which you can download with every release of
 Wasmtime. It relies on version `v0.24.0` of Wasmtime and you need it to build tests and examples.
 You can download the library from [here].
@@ -21,7 +25,7 @@ After you unpack it, if you installed the lib in path that is not your system se
 you can add the installed path to the build command using the following flag
 
 ```
-zig build -Dlibrary-search-path=<path-to-libwasmtime>
+gyro build --search-prefix=<path-to-libwasmtime>
 ```
 
 [here]: https://github.com/bytecodealliance/wasmtime/releases/tag/v0.24.0
@@ -33,18 +37,15 @@ zig build -Dlibrary-search-path=<path-to-libwasmtime>
 The `simple.zig` example is equivalent to [`hello.c`] example in Wasmtime. You can run it with
 
 ```
-zig build example-simple
+gyro build run -Dexample=simple
 ```
 
 Optionally, if you installed `libwasmtime` into some custom path, you can tell zig where to find it
 with
 
 ```
-zig build example-simple -Dlibrary-search-path=<path-to-libwasmtime>
+gyro build run -Dexample=simple --search-prefix=<path-to-libwasmtime>
 ```
 
 [`hello.c`]: https://github.com/bytecodealliance/wasmtime/blob/master/examples/hello.c
 
-**NOTE:** while on Linux and macOS, it is fine to link with `libwasmtime` statically, I've found that
-on Windows it is generally safer to use a dynamic library. Therefore, when installing `libwasmtime` make
-sure you point to the path where `wasmtime.dll.lib` is located.
