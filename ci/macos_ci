@@ -3,7 +3,7 @@
 set -x
 set -e
 
-ZIG="zig-macos-x86_64-0.8.0-dev.2667+44de88498"
+ZIG="zig-macos-x86_64-0.8.0-dev.2670+d8d92dafe"
 WASMTIME_VERSION="v0.24.0"
 WASMTIME="wasmtime-$WASMTIME_VERSION-x86_64-macos-c-api"
 GYRO_VERSION="0.2.3"
