@@ -28,12 +28,12 @@ pub fn main() !void {
     defer instance.deinit();
     std.debug.print("Instance initialized...\n", .{});
 
-    const memory = instance.getExportMem("memory").?;
+    const memory = instance.getExportMem(module, "memory").?;
     defer memory.deinit();
 
-    const size_func = instance.getExportFunc("size").?;
-    const load_func = instance.getExportFunc("load").?;
-    const store_func = instance.getExportFunc("store").?;
+    const size_func = instance.getExportFunc(module, "size").?;
+    const load_func = instance.getExportFunc(module, "load").?;
+    const store_func = instance.getExportFunc(module, "store").?;
 
     // verify initial memory
     assert(memory.pages() == 2);

@@ -27,7 +27,7 @@ pub fn main() !void {
     defer instance.deinit();
     std.debug.print("Instance initialized...\n", .{});
 
-    if (instance.getExportFunc("gcd")) |f| {
+    if (instance.getExportFunc(module, "gcd")) |f| {
         std.debug.print("Calling export...\n", .{});
         const result = try f.call(i32, .{ @as(i32, 6), @as(i32, 27) });
         std.debug.print("Result: {d}\n", .{result});
