@@ -272,13 +272,13 @@ pub const Instance = struct {
         };
     }
 
-    pub fn getExportFunc(self: Instance, name: []const u8) ?Func {
-        var inner = self.inner.getExportFunc(name) orelse return null;
+    pub fn getExportFunc(self: Instance, module: Module, name: []const u8) ?Func {
+        var inner = self.inner.getExportFunc(module.inner, name) orelse return null;
         return Func{ .inner = inner };
     }
 
-    pub fn getExportMem(self: Instance, name: []const u8) ?*Memory {
-        return self.inner.getExportMem(name);
+    pub fn getExportMem(self: Instance, module: Module, name: []const u8) ?*Memory {
+        return self.inner.getExportMem(module.inner, name);
     }
 
     pub fn deinit(self: Instance) void {

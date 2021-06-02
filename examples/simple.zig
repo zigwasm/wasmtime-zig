@@ -35,7 +35,7 @@ pub fn main() !void {
     defer instance.deinit();
     std.debug.print("Instance initialized...\n", .{});
 
-    if (instance.getExportFunc("run")) |f| {
+    if (instance.getExportFunc(module, "run")) |f| {
         std.debug.print("Calling export...\n", .{});
         try f.call(void, .{});
     } else {

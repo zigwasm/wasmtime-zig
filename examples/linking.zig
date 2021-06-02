@@ -95,7 +95,7 @@ pub fn main() !void {
     std.debug.print("Instance initialized...\n", .{});
     std.debug.print("Wasm linking completed...\n", .{});
 
-    if (instance.?.getExportFunc("run")) |f| {
+    if (instance.?.getExportFunc(module.inner, "run")) |f| {
         std.debug.print("Calling export...\n", .{});
         try f.call(void, .{});
     } else {

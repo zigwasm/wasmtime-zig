@@ -40,7 +40,7 @@ pub fn main() !void {
 
     const thread = try std.Thread.spawn(interrupt, handle);
 
-    if (instance.getExportFunc("run")) |f| {
+    if (instance.getExportFunc(module, "run")) |f| {
         std.debug.print("Calling export...\n", .{});
         f.call(void, .{}) catch |err| switch (err) {
             error.Trap => std.debug.print("Trap was hit!\n", .{}),
