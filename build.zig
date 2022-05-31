@@ -30,13 +30,22 @@ pub fn build(b: *std.build.Builder) !void {
     simple_exe.setBuildMode(mode);
     simple_exe.addPackage(.{
         .name = "wasmtime",
-        .path = "src/main.zig",
+        .source = .{ .path = "src/main.zig" },
         .dependencies = &.{pkgs.wasm},
     });
-    if (builtin.os.tag == .windows) {
-        simple_exe.linkSystemLibrary("wasmtime.dll");
-    } else {
-        simple_exe.linkSystemLibrary("wasmtime");
+    switch (builtin.os.tag) {
+        .windows => {
+            simple_exe.linkSystemLibrary("wasmtime.dll");
+            simple_exe.linkSystemLibrary("unwind");
+        },
+        .linux => {
+            simple_exe.linkSystemLibrary("wasmtime");
+            simple_exe.linkSystemLibrary("unwind");
+        },
+        .macos => {
+            simple_exe.linkSystemLibrary("wasmtime");
+        },
+        else => unreachable,
     }
     simple_exe.linkLibC();
     simple_exe.step.dependOn(b.getInstallStep());

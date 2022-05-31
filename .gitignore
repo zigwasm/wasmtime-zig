@@ -1,4 +1,6 @@
 zig-cache
+zig-*
+wasmtime*
 .DS_Store
 *.swp
 .gyro

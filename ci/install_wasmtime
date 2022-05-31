@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -x
+set -e
+
+WASMTIME_VERSION=$1
+WASMTIME=$2
+
+curl -sL "https://github.com/bytecodealliance/wasmtime/releases/download/$WASMTIME_VERSION/$WASMTIME.tar.xz" -o "$WASMTIME.tar.xz"
+tar xf "$WASMTIME.tar.xz"

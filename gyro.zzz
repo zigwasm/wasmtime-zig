@@ -1,7 +1,6 @@
 pkgs:
   wasmtime:
     version: 0.0.0
-    root: src/main.zig
     description: Zig embedding of Wasmtime
     license: Apache-2.0
     source_url: "https://github.com/zigwasm/wasmtime-zig"
@@ -9,10 +8,10 @@ pkgs:
       wasmtime
       wasm
       wasi
+    root: src/main.zig
 deps:
   wasm:
-    src:
-      github:
-        user: zigwasm
-        repo: wasm-zig
-        ref: main
+    git:
+      url: "https://github.com/zigwasm/wasm-zig.git"
+      ref: main
+      root: src/main.zig
