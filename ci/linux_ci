@@ -6,7 +6,7 @@ set -e
 ZIG="zig-linux-x86_64-0.8.0-dev.2667+44de88498"
 WASMTIME_VERSION="v0.24.0"
 WASMTIME="wasmtime-$WASMTIME_VERSION-x86_64-linux-c-api"
-GYRO_VERSION="0.2.3"
+GYRO_VERSION="0.7.0"
 GYRO="gyro-$GYRO_VERSION-linux-x86_64"
 
 wget -nv "https://ziglang.org/builds/$ZIG.tar.xz"
