@@ -1,48 +1,44 @@
 const std = @import("std");
 
-pub const config = @import("./config.zig");
-pub const error = @import("./error.zig").Error;
+pub const Error = @import("./error.zig").Error;
+pub const Engine = @import("./engine.zig").Engine;
 
 pub const wasm = @import("wasm");
 
-pub const Context = opaque {}
+pub const Context = opaque {};
 
 // Store is a general group of wasm instances, and many objects
 // must all be created with and reference the same `Store`
 pub const Store = struct {
     inner: *wasm.Store,
 
-    engine: *wasmtime.Engine,
+    engine: *Engine,
 
     // init creates a new `Store` from the configuration provided in `engine`
-    pub fn init(engine: *wasmtime.Engine) !*Store {
+    pub fn init(engine: *Engine) !Store {
         return Store {
-            .inner = try wasm.Store.init();
-        }
+            .inner = try wasm.Store.init(engine.inner),
+            .engine = engine,
+        };
     }
 
     pub fn deinit(self: *Store) void {
-        self.inner.deinit(self.inner);
+        self.inner.deinit();
     }
 
-    pub fn context() *Context{
-        return wasmtime_store_context(self.inner) orelse error.StoreContext
+    pub fn context(self: *Store) *Context{
+        return wasmtime_store_context(self.inner) orelse Error.StoreContext;
     }
 
-    pub fn setEpochDeadline(self: *Store, deadline: u64) {
-        wasmtime_context_set_epoch_deadline(self.context(), deadline)
+    pub fn setEpochDeadline(self: *Store, deadline: u64) void {
+        wasmtime_context_set_epoch_deadline(self.context(), deadline);
     }
-
-    // not imlemented
-    pub fn fuelConsumed() (uint64, bool) // zig multiple return values?
-    pub fn addFuel(fuel: u64) !void {}
-    pub fn consumeFuel(fuel: u64) !u64 {}
 
     extern "c" fn wasmtime_store_context(*Store) *Context;
-    extern "c" fn wasmtime_context_set_epoch_deadline(*Context, u64);
+    extern "c" fn wasmtime_context_set_epoch_deadline(*Context, u64) void;
 
     // not imlemented
-    extern "c" fn wasmtime_context_fuel_consumed(*Context, u64) // ??
-    extern "c" fn wasmtime_context_add_fuel(*Context, u64) void
-    extern "c" fn wasmtime_context_consume_fuel(*Context, u64, u64) u64
-}
+    // extern "c" fn wasmtime_context_fuel_consumed(*Context, u64) c_int // ??
+    // extern "c" fn wasmtime_context_add_fuel(*Context, u64) void
+    // extern "c" fn wasmtime_context_consume_fuel(*Context, u64, u64) u64
+};
