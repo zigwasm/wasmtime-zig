@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const config = @import("./config.zig");
+pub const Config = @import("./config.zig").Config;
 
 pub const wasm = @import("wasm");
 
@@ -13,24 +13,24 @@ pub const Engine = struct {
 
     /// TODO: decide: call function "init" or "new"?
     /// init creates a new `Engine` with default configuration.
-    pub fn init() !*Engine {
+    pub fn init() !Engine {
         return Engine {
-            .inner = try wasm.Engine.init();
-        }
+            .inner = try wasm.Engine.init(),
+        };
     }
 
     // withConfig creates a new `Engine` with the `Config` provided
     //
     // Note that once a `Config` is passed to this method it cannot be used again.
-    pub fn withConfig(config: *config.Config) !*Engine {
+    pub fn withConfig(config: *Config) !Engine {
         return Engine {
-            .inner = try wasm.Engine.withConfig(config);
-        }
+            .inner = try wasm.Engine.withConfig(config.inner),
+        };
     }
 
     /// Frees the resources of the `Engine`
     pub fn deinit(self: *Engine) void {
-        self.inner.deinit(self.inner);
+        self.inner.deinit();
     }
 
     /// IncrementEpoch will increase the current epoch number by 1 within the
@@ -42,3 +42,16 @@ pub const Engine = struct {
 
     extern "c" fn wasmtime_engine_increment_epoch(*wasm.Engine) void;
 };
+
+test "withConfig" {
+
+    const o = Config.Options {
+        .debugInfo = true,
+    };
+
+    var c: Config = try Config.init(o);
+
+    var engine = try Engine.withConfig(&c);
+    defer engine.deinit();
+
+}
