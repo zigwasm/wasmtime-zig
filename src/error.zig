@@ -13,6 +13,7 @@ pub const Error = error{
     StoreContext,
     /// Failed to initialize a `Module`
     ModuleInit,
+    ModuleWat2Wasm,
     /// Failed to create a wasm function based on
     /// the given `Store` and functype
     FuncInit,
