@@ -13,7 +13,7 @@ ZIG_VERSION=$(curl -s ${ZIG_SRC} | jq -r '.master.version')
 ZIG="zig-${OS_ARCH}-$ZIG_VERSION"
 ZIG_MASTER=$(curl -s ${ZIG_SRC} | jq -r --arg ARCH_OS "$ARCH_OS" '.master[$ARCH_OS].tarball')
 
-WASMTIME_VERSION="v0.37.0"
+WASMTIME_VERSION="v0.38.1"
 WASMTIME="wasmtime-$WASMTIME_VERSION-${ARCH_OS}-c-api"
 GYRO_VERSION="0.7.0"
 GYRO="gyro-$GYRO_VERSION-${OS_ARCH}"
