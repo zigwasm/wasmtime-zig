@@ -19,15 +19,13 @@ pub const Module = struct {
     /// Initializes a new `Module` by first converting the given wat format
     /// into wasm bytecode.
     pub fn initFromWat(engine: *Engine, wat: []const u8) !Module {
-
         var wasm_bytes = try Convert.wat2wasm(wat);
         // defer wasm_bytes.deinit();
 
         var module = Module{
             .inner = try Module.initInner(engine, &wasm_bytes),
         };
-        log.err("Returning module: {s}", .{ &module });
-        log.err("Returning moduleT: {s}", .{ @TypeOf(&module) });
+
         return module;
     }
 
@@ -49,10 +47,10 @@ pub const Module = struct {
         // * returned error and module are owned by the caller.
         // */
         const err = wasmtime_module_new( // WASM_API_EXTERN wasmtime_error_t *wasmtime_module_new(
-            engine.inner,                // wasm_engine_t *engine,
-            wasm_bytes.data,             // const uint8_t *wasm,
-            wasm_bytes.size,             // size_t wasm_len,
-            &inner.?                     // wasmtime_module_t **ret
+            engine.inner, // wasm_engine_t *engine,
+            wasm_bytes.data, // const uint8_t *wasm,
+            wasm_bytes.size, // size_t wasm_len,
+            &inner.? // wasmtime_module_t **ret
         );
 
         if (err) |e| {
