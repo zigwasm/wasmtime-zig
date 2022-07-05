@@ -8,8 +8,7 @@ pub const Slab = struct {
     next: u64,
 
     pub fn init(allocator: Allocator) Slab {
-
-        const s = Slab {
+        const s = Slab{
             .list = ArrayList(u64).init(allocator),
             .next = 0,
         };
@@ -19,7 +18,7 @@ pub const Slab = struct {
 
     pub fn allocate(self: *Slab) !u64 {
         if (self.next == self.list.items.len) {
-            try self.list.append(self.next+1);
+            try self.list.append(self.next + 1);
         }
         const ret = self.next;
         self.next = self.list.items[ret];
@@ -31,7 +30,6 @@ pub const Slab = struct {
         self.next = slot;
     }
 };
-
 
 test "wasmtime.Slab" {
     var slab = Slab.init(std.heap.c_allocator);

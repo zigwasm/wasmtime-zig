@@ -14,7 +14,7 @@ pub const Engine = struct {
     /// TODO: decide: call function "init" or "new"?
     /// init creates a new `Engine` with default configuration.
     pub fn init() !Engine {
-        return Engine {
+        return Engine{
             .inner = try wasm.Engine.init(),
         };
     }
@@ -23,7 +23,7 @@ pub const Engine = struct {
     //
     // Note that once a `Config` is passed to this method it cannot be used again.
     pub fn withConfig(config: *Config) !Engine {
-        return Engine {
+        return Engine{
             .inner = try wasm.Engine.withConfig(config.inner),
         };
     }
@@ -44,8 +44,7 @@ pub const Engine = struct {
 };
 
 test "withConfig" {
-
-    const o = Config.Options {
+    const o = Config.Options{
         .debugInfo = true,
     };
 
@@ -53,5 +52,4 @@ test "withConfig" {
 
     var engine = try Engine.withConfig(&c);
     defer engine.deinit();
-
 }

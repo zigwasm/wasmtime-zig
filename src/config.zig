@@ -68,18 +68,40 @@ pub const Config = struct {
             .inner = try wasm.Config.init(),
         };
 
-        if (options.debugInfo) { config.setDebugInfo(true); }
-        if (options.wasmThreads) { config.setWasmThreads(true); }
-        if (options.wasmReferenceTypes) { config.setWasmReferenceTypes(true); }
-        if (options.wasmSIMD) { config.setWasmSIMD(true); }
-        if (options.wasmBulkMemory) { config.setWasmBulkMemory(true); }
-        if (options.wasmMultiValue) { config.setWasmMultiValue(true); }
-        if (options.wasmMultiMemory) { config.setWasmMultiMemory(true); }
-        if (options.wasmMemory64) { config.setWasmMemory64(true); }
-        if (options.consumeFuel) { config.setConsumeFuel(true); }
-        if (options.craneliftDebugVerifier) { config.setCraneliftDebugVerifier(true); }
+        if (options.debugInfo) {
+            config.setDebugInfo(true);
+        }
+        if (options.wasmThreads) {
+            config.setWasmThreads(true);
+        }
+        if (options.wasmReferenceTypes) {
+            config.setWasmReferenceTypes(true);
+        }
+        if (options.wasmSIMD) {
+            config.setWasmSIMD(true);
+        }
+        if (options.wasmBulkMemory) {
+            config.setWasmBulkMemory(true);
+        }
+        if (options.wasmMultiValue) {
+            config.setWasmMultiValue(true);
+        }
+        if (options.wasmMultiMemory) {
+            config.setWasmMultiMemory(true);
+        }
+        if (options.wasmMemory64) {
+            config.setWasmMemory64(true);
+        }
+        if (options.consumeFuel) {
+            config.setConsumeFuel(true);
+        }
+        if (options.craneliftDebugVerifier) {
+            config.setCraneliftDebugVerifier(true);
+        }
         // if (options.craneLiftOptLevel != undefined) { config.setCraneLiftOptLevel(options.craneLiftOptLevel); }
-        if (options.epochInterruption) { try config.setEpochInterruption(true);}
+        if (options.epochInterruption) {
+            try config.setEpochInterruption(true);
+        }
 
         return config;
     }
@@ -132,7 +154,7 @@ pub const Config = struct {
     pub fn setConsumeFuel(self: *Config, opt: bool) void {
         wasmtime_config_consume_fuel_set(self.inner, opt);
     }
-    
+
     // setStrategy configures what compilation strategy is used to compile wasm code
     pub fn setStrategy(self: *Config, strat: *Strategy) !void {
         return wasmtime_config_strategy_set(self.inner, strat) orelse Error.ConfigStrategySet;

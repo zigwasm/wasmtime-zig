@@ -16,7 +16,7 @@ pub const Store = struct {
 
     // init creates a new `Store` from the configuration provided in `engine`
     pub fn init(engine: *Engine) !Store {
-        return Store {
+        return Store{
             .inner = try wasm.Store.init(engine.inner),
             .engine = engine,
         };
@@ -26,7 +26,7 @@ pub const Store = struct {
         self.inner.deinit();
     }
 
-    pub fn context(self: *Store) *Context{
+    pub fn context(self: *Store) *Context {
         return wasmtime_store_context(self.inner) orelse Error.StoreContext;
     }
 
