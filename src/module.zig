@@ -66,7 +66,6 @@ pub const Module = struct {
     }
 
     pub fn deinit(self: Module) void {
-        log.err("self: {s} ({s})", .{ &self, @TypeOf(&self) });
         self.inner.deinit();
     }
 
