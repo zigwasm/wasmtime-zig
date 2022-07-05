@@ -3,28 +3,28 @@
 set -x
 set -e
 
-ZIG="zig-macos-x86_64-0.8.0-dev.2670+d8d92dafe"
-WASMTIME_VERSION="v0.24.0"
+ARCH="x86_64"
+OS="macos"
+ARCH_OS="${ARCH}-${OS}"
+OS_ARCH="${OS}-${ARCH}"
+
+ZIG_SRC="https://ziglang.org/download/index.json"
+ZIG_VERSION=$(curl -s ${ZIG_SRC} | jq -r '.master.version')
+ZIG="zig-${OS_ARCH}-$ZIG_VERSION"
+ZIG_MASTER=$(curl -s ${ZIG_SRC} | jq -r --arg ARCH_OS "$ARCH_OS" '.master[$ARCH_OS].tarball')
+
+WASMTIME_VERSION="v0.38.1"
 WASMTIME="wasmtime-$WASMTIME_VERSION-x86_64-macos-c-api"
-GYRO_VERSION="0.2.3"
+GYRO_VERSION="0.7.0"
 GYRO="gyro-$GYRO_VERSION-macos-x86_64"
 
-curl -L "https://ziglang.org/builds/$ZIG.tar.xz" -o "$ZIG.tar.xz"
+curl -sL "${ZIG_MASTER}" -o "$ZIG.tar.xz"
 tar xf "$ZIG.tar.xz"
 export PATH="$(pwd)/$ZIG:$PATH"
 
-curl -L "https://github.com/bytecodealliance/wasmtime/releases/download/$WASMTIME_VERSION/$WASMTIME.tar.xz" -o "$WASMTIME.tar.xz"
-tar xf "$WASMTIME.tar.xz"
+./ci/install_wasmtime $WASMTIME_VERSION $WASMTIME
 
-curl -L "https://github.com/mattnite/gyro/releases/download/$GYRO_VERSION/$GYRO.tar.gz" -o "$GYRO.tar.gz"
-tar xf "$GYRO.tar.gz"
+./ci/install_gyro $GYRO_VERSION $GYRO
 export PATH="$(pwd)/$GYRO/bin:$PATH"
 
-gyro build
-gyro build test
-gyro build run -Dexample=simple --search-prefix "$(pwd)/$WASMTIME"
-gyro build run -Dexample=gcd --search-prefix "$(pwd)/$WASMTIME"
-gyro build run -Dexample=linking --search-prefix "$(pwd)/$WASMTIME"
-gyro build run -Dexample=memory --search-prefix "$(pwd)/$WASMTIME"
-gyro build run -Dexample=interrupt --search-prefix "$(pwd)/$WASMTIME"
-
+./ci/run_gyro $WASMTIME

@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -x
+set -e
+
+WASMTIME=$1
+
+gyro build
+gyro build test
+gyro build run -Dexample=simple --search-prefix "$(pwd)/$WASMTIME"
+gyro build run -Dexample=gcd --search-prefix "$(pwd)/$WASMTIME"
+gyro build run -Dexample=linking --search-prefix "$(pwd)/$WASMTIME"
+gyro build run -Dexample=memory --search-prefix "$(pwd)/$WASMTIME"
+gyro build run -Dexample=interrupt --search-prefix "$(pwd)/$WASMTIME"

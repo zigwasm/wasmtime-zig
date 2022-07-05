@@ -38,7 +38,7 @@ pub fn main() !void {
     defer instance.deinit();
     std.debug.print("Instance initialized...\n", .{});
 
-    const thread = try std.Thread.spawn(interrupt, handle);
+    const thread = try std.Thread.spawn(.{}, interrupt, .{ handle });
 
     if (instance.getExportFunc(module, "run")) |f| {
         std.debug.print("Calling export...\n", .{});
@@ -50,5 +50,5 @@ pub fn main() !void {
         std.debug.print("Export not found...\n", .{});
     }
 
-    thread.wait();
+    thread.join();
 }

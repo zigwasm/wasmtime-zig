@@ -3,28 +3,30 @@
 set -x
 set -e
 
-ZIG="zig-windows-x86_64-0.8.0-dev.2667+44de88498"
-WASMTIME_VERSION="v0.24.0"
-WASMTIME="wasmtime-$WASMTIME_VERSION-x86_64-windows-c-api"
-GYRO_VERSION="0.2.3"
-GYRO="gyro-$GYRO_VERSION-windows-x86_64"
+ARCH="x86_64"
+OS="windows"
+ARCH_OS="${ARCH}-${OS}"
+OS_ARCH="${OS}-${ARCH}"
 
-curl -L "https://ziglang.org/builds/$ZIG.zip" -o "$ZIG.zip"
+ZIG_SRC="https://ziglang.org/download/index.json"
+ZIG_VERSION=$(curl -s ${ZIG_SRC} | jq -r '.master.version')
+ZIG="zig-${OS_ARCH}-$ZIG_VERSION"
+ZIG_MASTER=$(curl -s ${ZIG_SRC} | jq -r --arg ARCH_OS "$ARCH_OS" '.master[$ARCH_OS].tarball')
+
+WASMTIME_VERSION="v0.38.1"
+WASMTIME="wasmtime-$WASMTIME_VERSION-${ARCH_OS}-c-api"
+GYRO_VERSION="0.7.0"
+GYRO="gyro-$GYRO_VERSION-${OS_ARCH}"
+
+curl -sL "${ZIG_MASTER}" -o "$ZIG.zip"
 7z x "$ZIG.zip"
 export PATH="$(pwd)/$ZIG:$PATH"
 
-curl -L "https://github.com/bytecodealliance/wasmtime/releases/download/$WASMTIME_VERSION/$WASMTIME.zip" -o "$WASMTIME.zip"
+curl -sL "https://github.com/bytecodealliance/wasmtime/releases/download/$WASMTIME_VERSION/$WASMTIME.zip" -o "$WASMTIME.zip"
 7z x "$WASMTIME.zip"
 
-curl -L "https://github.com/mattnite/gyro/releases/download/$GYRO_VERSION/$GYRO.zip" -o "$GYRO.zip"
+curl -sL "https://github.com/mattnite/gyro/releases/download/$GYRO_VERSION/$GYRO.zip" -o "$GYRO.zip"
 7z x "$GYRO.zip"
 export PATH="$(pwd)/$GYRO/bin:$PATH"
 
-gyro build
-gyro build test
-gyro build run -Dexample=simple --search-prefix "$(pwd)/$WASMTIME"
-gyro build run -Dexample=gcd --search-prefix "$(pwd)/$WASMTIME"
-gyro build run -Dexample=linking --search-prefix "$(pwd)/$WASMTIME"
-gyro build run -Dexample=memory --search-prefix "$(pwd)/$WASMTIME"
-gyro build run -Dexample=interrupt --search-prefix "$(pwd)/$WASMTIME"
-
+./ci/run_gyro $WASMTIME
