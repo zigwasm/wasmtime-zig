@@ -12,6 +12,6 @@ pkgs:
 deps:
   wasm:
     git:
-      url: "https://github.com/zigwasm/wasm-zig.git"
-      ref: main
+      url: "https://github.com/voigt/wasm-zig.git"
+      ref: fix_testname
       root: src/main.zig
