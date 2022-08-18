@@ -346,6 +346,6 @@ pub const Linker = opaque {
     extern "c" fn wasmtime_linker_instantiate(*const Linker, *const wasm.Module, *?*wasm.Instance, *?*Trap) ?*WasmError;
 };
 
-test "" {
+test {
     testing.refAllDecls(@This());
 }
