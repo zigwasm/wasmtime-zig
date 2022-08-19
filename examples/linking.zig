@@ -1,6 +1,6 @@
 const std = @import("std");
 const wasmtime = @import("wasmtime");
-const builtin = std.builtin;
+const builtin = @import("builtin");
 const fs = std.fs;
 const ga = std.heap.c_allocator;
 const Allocator = std.mem.Allocator;

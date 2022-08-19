@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -x
+set -e
+
+GYRO_VERSION=$1
+GYRO=$2
+
+curl -sL "https://github.com/mattnite/gyro/releases/download/$GYRO_VERSION/$GYRO.tar.gz" -o "$GYRO.tar.gz"
+tar xf "$GYRO.tar.gz"

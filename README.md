@@ -1,5 +1,5 @@
 # wasmtime-zig
-[<img alt="github" src="https://img.shields.io/badge/github-kubkon/wasmtime--zig-8da0cb?style=for-the-badge&labelColor=555555&logo=github" height="20">](https://github.com/kubkon/wasmtime-zig)
+[<img alt="github" src="https://img.shields.io/badge/github-zigwasm/wasmtime--zig-8da0cb?style=for-the-badge&labelColor=555555&logo=github" height="20">](https://github.com/kubkon/wasmtime-zig)
 [<img alt="build status" src="https://img.shields.io/github/workflow/status/kubkon/wasmtime-zig/CI/master?style=for-the-badge" height="20">](https://github.com/kubkon/wasmtime-zig/actions?query=branch%3Amaster)
 
 Zig embedding of [Wasmtime]
@@ -13,7 +13,7 @@ but expected, and things might just not work as expected yet.
 
 ## Building
 
-To build this library, you will need Zig nightly 0.8.0, as well as [`gyro`] package manager.
+To build this library, you will need Zig nightly 0.10.0, as well as [`gyro`] package manager (`v0.7.0`).
 
 [`gyro`]: https://github.com/mattnite/gyro
 

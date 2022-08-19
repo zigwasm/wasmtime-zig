@@ -69,14 +69,14 @@ pub const Module = struct {
     inner: *wasm.Module,
 
     /// Initializes a new `Module` using the supplied engine and wasm bytecode
-    pub fn initFromWasm(engine: *Engine, wasm: []const u8) !Module {
-        var wasm_bytes = ByteVec.initWithCapacity(wasm.len);
+    pub fn initFromWasm(engine: *Engine, _wasm: []const u8) !Module {
+        var wasm_bytes = ByteVec.initWithCapacity(_wasm.len);
         defer wasm_bytes.deinit();
 
         var i: usize = 0;
         var ptr = wasm_bytes.data;
-        while (i < wasm.len) : (i += 1) {
-            ptr.* = wasm[i];
+        while (i < _wasm.len) : (i += 1) {
+            ptr.* = _wasm[i];
             ptr += 1;
         }
 
@@ -163,8 +163,8 @@ pub const Func = struct {
         comptime var wasm_args: [args_len]Value = undefined;
         inline for (wasm_args) |*arg, i| {
             arg.* = switch (@TypeOf(args[i])) {
-                i32, u32 => .{ .kind = .i32, .of = .{ .i32 = @intCast(i32, args[i]) } },
-                i64, u64 => .{ .kind = .i64, .of = .{ .i64 = @intCast(i64, args[i]) } },
+                i32, u32 => .{ .kind = .i32, .of = .{ .i32 = @bitCast(i32, args[i]) } },
+                i64, u64 => .{ .kind = .i64, .of = .{ .i64 = @bitCast(i64, args[i]) } },
                 f32 => .{ .kind = .f32, .of = .{ .f32 = args[i] } },
                 f64 => .{ .kind = .f64, .of = .{ .f64 = args[i] } },
                 *Func => .{ .kind = .funcref, .of = .{ .ref = args[i] } },
@@ -216,7 +216,7 @@ pub const Func = struct {
             f32 => result_ty.of.f32,
             f64 => result_ty.of.f64,
             *Func => @ptrCast(?*Func, result_ty.of.ref).?,
-            *Extern => @ptrCast(?*c.Extern, result_ty.of.ref).?,
+            *Extern => @ptrCast(?*Extern, result_ty.of.ref).?,
             else => |ty| @compileError("Unsupported result type '" ++ @typeName(ty) ++ "'"),
         };
     }
@@ -296,6 +296,7 @@ pub const InterruptHandle = opaque {
     }
     /// Invokes an interrupt in the current wasm module
     pub fn interrupt(self: *InterruptHandle) void {
+        std.debug.print("> INTERRUPTING! \n", .{});
         wasmtime_interrupt_handle_interrupt(self);
     }
 
@@ -345,6 +346,6 @@ pub const Linker = opaque {
     extern "c" fn wasmtime_linker_instantiate(*const Linker, *const wasm.Module, *?*wasm.Instance, *?*Trap) ?*WasmError;
 };
 
-test "" {
+test {
     testing.refAllDecls(@This());
 }
